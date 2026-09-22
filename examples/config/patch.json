@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/CodeVachon/merge-pipeline/main/schema/config.json",
+  "disabled": false,
+  "name": "Patch Release to Staging Pipeline",
+  "description": "Deploy a Patch Release Branch to Staging",
+  "order": 1,
+  "pipeline": [
+    "^Patch-*",
+    "^staging-patch$"
+  ]
+}

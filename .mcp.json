@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "motte": {
+      "command": "motte",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}

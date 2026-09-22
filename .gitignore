@@ -1,0 +1,7 @@
+# Rust
+/target/
+# Release assets built locally
+*.gz
+/dist/
+# macOS
+.DS_Store

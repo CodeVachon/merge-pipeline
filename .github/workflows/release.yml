@@ -1,0 +1,284 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build (must already exist)"
+        required: true
+
+permissions:
+  contents: write
+
+# Four stages on purpose: gate, build, verify, publish. Nothing is published until every built asset
+# has been installed and run by the installer scripts, and the bytes that are published are the bytes
+# that were tested — assets are built once in the matrix and passed along as artifacts, never rebuilt.
+#
+# Rust does not cross-compile every target from one runner the way Bun does, so `build` is a matrix
+# with one native runner per target.
+jobs:
+  gate:
+    name: gate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - id: resolve
+        shell: bash
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # A release that reports the wrong version is worse than a failed release.
+      - name: Tag must match Cargo.toml version
+        shell: bash
+        run: |
+          tag="${{ steps.resolve.outputs.tag }}"
+          expected="v${{ steps.resolve.outputs.version }}"
+          if [ "$tag" != "$expected" ]; then
+            echo "tag $tag does not match Cargo.toml ($expected)" >&2
+            exit 1
+          fi
+          echo "$tag matches Cargo.toml"
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+  build:
+    name: build (${{ matrix.os_name }}-${{ matrix.arch }})
+    needs: gate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            os_name: darwin
+            arch: arm64
+            ext: ""
+          - runner: macos-14
+            target: x86_64-apple-darwin
+            os_name: darwin
+            arch: x64
+            ext: ""
+          # musl so the Linux binaries are static and run on any distribution regardless of glibc.
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            os_name: linux
+            arch: x64
+            ext: ""
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            os_name: linux
+            arch: arm64
+            ext: ""
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            os_name: windows
+            arch: x64
+            ext: ".exe"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Install musl toolchain
+        if: contains(matrix.target, 'musl')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      # Asset name is the on-disk contract shared with install.sh, install.ps1 and the `upgrade`
+      # command: merge-pipeline-<os>-<arch>[.exe].gz alongside checksums.txt.
+      - name: Package
+        shell: bash
+        run: |
+          asset="merge-pipeline-${{ matrix.os_name }}-${{ matrix.arch }}${{ matrix.ext }}"
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/merge-pipeline${{ matrix.ext }}" "dist/$asset"
+          # -n omits the timestamp so the archive, and therefore its checksum, is reproducible.
+          gzip -9 -n "dist/$asset"
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os_name }}-${{ matrix.arch }}
+          path: dist/*.gz
+          retention-days: 1
+          if-no-files-found: error
+
+  # Verify happens before publish, on the exact bytes the build produced. dist/ is served over a
+  # local HTTP server so install.sh fetches from it the same way it would fetch from a GitHub
+  # release, and checksums.txt is written here because it must cover every asset at once.
+  verify:
+    name: verify (linux, install.sh)
+    needs: [gate, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+
+      - name: Write checksums.txt
+        working-directory: dist
+        run: |
+          sha256sum *.gz > checksums.txt
+          cat checksums.txt
+
+      # A static stand-in for the GitHub releases API, so `upgrade --check` can resolve "latest"
+      # without the release existing yet. python's http.server serves any path that is a file.
+      - name: Fake the releases API
+        run: |
+          mkdir -p dist/repos/CodeVachon/merge-pipeline/releases
+          printf '{"tag_name":"%s","draft":false,"prerelease":true}\n' "${{ needs.gate.outputs.tag }}" \
+            > dist/repos/CodeVachon/merge-pipeline/releases/latest
+
+      - name: Serve dist/
+        run: |
+          python3 -m http.server 8123 --directory dist &
+          for _ in $(seq 1 30); do
+            curl -fsS -o /dev/null http://127.0.0.1:8123/checksums.txt 2>/dev/null && break
+            sleep 1
+          done
+          curl -fsS -o /dev/null http://127.0.0.1:8123/checksums.txt
+
+      - name: Install with install.sh from the built assets
+        env:
+          MERGE_PIPELINE_VERSION: ${{ needs.gate.outputs.tag }}
+          MERGE_PIPELINE_DOWNLOAD_BASE: http://127.0.0.1:8123
+          MERGE_PIPELINE_INSTALL_DIR: ${{ runner.temp }}/merge-pipeline-root
+          MERGE_PIPELINE_BIN_DIR: ${{ runner.temp }}/merge-pipeline-bin
+          MERGE_PIPELINE_NO_MODIFY_PATH: "1"
+        run: sh install.sh
+
+      - name: Smoke test the installed binary
+        env:
+          MERGE_PIPELINE_INSTALL_DIR: ${{ runner.temp }}/merge-pipeline-root
+          MERGE_PIPELINE_BIN_DIR: ${{ runner.temp }}/merge-pipeline-bin
+          MERGE_PIPELINE_DOWNLOAD_BASE: http://127.0.0.1:8123
+          MERGE_PIPELINE_API_BASE: http://127.0.0.1:8123
+        run: sh scripts/smoke.sh "${{ runner.temp }}/merge-pipeline-bin/merge-pipeline" "${{ needs.gate.outputs.version }}"
+
+      - name: Remove the API stand-in before publishing dist/
+        run: rm -rf dist/repos
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: |
+            dist/*.gz
+            dist/checksums.txt
+          retention-days: 1
+          if-no-files-found: error
+
+  # The Windows half. install.ps1 is exercised against the same locally served bytes; the smoke test
+  # is shallower (no git fixture) because the interesting logic is identical across platforms and
+  # is covered above.
+  verify-windows:
+    name: verify (windows, install.ps1)
+    needs: [gate, verify]
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Install with install.ps1 from the built assets
+        shell: pwsh
+        env:
+          MERGE_PIPELINE_VERSION: ${{ needs.gate.outputs.tag }}
+          MERGE_PIPELINE_INSTALL_DIR: ${{ runner.temp }}\merge-pipeline
+          MERGE_PIPELINE_NO_MODIFY_PATH: "1"
+        run: |
+          $server = Start-Process python -ArgumentList '-m', 'http.server', '8123', '--directory', 'dist' -PassThru
+          try {
+              Start-Sleep -Seconds 2
+              $env:MERGE_PIPELINE_DOWNLOAD_BASE = 'http://127.0.0.1:8123'
+              ./install.ps1
+          }
+          finally {
+              Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Run the installed binary
+        shell: pwsh
+        run: |
+          $exe = Join-Path '${{ runner.temp }}' 'merge-pipeline\current\bin\merge-pipeline.exe'
+          $expected = 'merge-pipeline ${{ needs.gate.outputs.version }}'
+          $actual = (& $exe --version | Out-String).Trim()
+          if ($actual -ne $expected) { throw "binary reports '$actual', expected '$expected'" }
+          & $exe --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw '--help exited non-zero' }
+          Write-Host "✓ $actual runs on windows-x64"
+
+  # Only after every asset has been installed and run on both platforms. The published files are
+  # the verified artifact, never a rebuild.
+  publish:
+    name: publish
+    needs: [gate, verify, verify-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.gate.outputs.tag }}
+          files: |
+            dist/*.gz
+            dist/checksums.txt
+          generate_release_notes: true
+          # 0.x ships as pre-releases until the interface settles.
+          prerelease: ${{ startsWith(needs.gate.outputs.tag, 'v0.') }}

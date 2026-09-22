@@ -1,0 +1,20 @@
+{
+  "$schema": "https://codevachon.github.io/motte/schema/config.json",
+  "name": "merge-pipeline",
+  "issuesDir": ".motte/issues",
+  "defaultState": "Todo",
+  "states": [
+    {
+      "name": "Todo",
+      "category": "unstarted"
+    },
+    {
+      "name": "In Progress",
+      "category": "started"
+    },
+    {
+      "name": "Done",
+      "category": "completed"
+    }
+  ]
+}

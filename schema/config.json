@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/CodeVachon/merge-pipeline/main/schema/config.json",
+  "title": "merge-pipeline workflow",
+  "description": "A merge-pipeline workflow file: an ordered list of branch patterns, each merged into the next.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "title": "Schema reference",
+      "description": "Lets editors validate this file. Point it at the published schema URL.",
+      "type": "string"
+    },
+    "disabled": {
+      "title": "Disable this workflow",
+      "description": "A disabled workflow is loaded but never offered for selection.",
+      "type": "boolean",
+      "default": false
+    },
+    "name": {
+      "title": "Workflow name",
+      "description": "Shown when selecting a workflow and accepted by --workflow.",
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "title": "Workflow description",
+      "type": "string"
+    },
+    "order": {
+      "title": "Order number",
+      "description": "Lower numbers are shown first when selecting workflows",
+      "type": "integer"
+    },
+    "pipeline": {
+      "title": "The pipeline to run",
+      "description": "Branch patterns, each merged into the next. Every entry is a case-insensitive regular expression matched against local branch names.",
+      "type": "array",
+      "items": {
+        "title": "Branch pattern",
+        "description": "Regular expression used to find the branch",
+        "type": "string"
+      },
+      "minItems": 2
+    }
+  },
+  "required": ["name", "pipeline"],
+  "additionalProperties": false
+}

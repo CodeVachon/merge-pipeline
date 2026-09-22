@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/CodeVachon/merge-pipeline/main/schema/config.json",
+  "disabled": false,
+  "name": "Minor Release to Staging Pipeline",
+  "description": "Deploy a Minor Release Branch to Staging",
+  "order": 2,
+  "pipeline": [
+    "^Patch-*",
+    "^Release-*",
+    "^staging-release$"
+  ]
+}

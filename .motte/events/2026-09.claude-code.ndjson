@@ -1,0 +1,196 @@
+{"at":"2026-09-17T17:10:57Z","id":1,"by":"claude-code","as":"agent","type":"created","title":"Epic: Project scaffold and Rust toolchain","state":"Todo"}
+{"at":"2026-09-17T17:11:10Z","id":2,"by":"claude-code","as":"agent","type":"created","title":"Epic: Core library — workflows, pipeline mapping, git, conflict resolution","state":"Todo"}
+{"at":"2026-09-17T17:11:21Z","id":3,"by":"claude-code","as":"agent","type":"created","title":"Epic: Interactive CLI","state":"Todo"}
+{"at":"2026-09-17T17:11:33Z","id":4,"by":"claude-code","as":"agent","type":"created","title":"Epic: MCP server (`merge-pipeline mcp`)","state":"Todo"}
+{"at":"2026-09-17T17:11:47Z","id":5,"by":"claude-code","as":"agent","type":"created","title":"Epic: Self-update and install path (mirror motte)","state":"Todo"}
+{"at":"2026-09-17T17:11:56Z","id":6,"by":"claude-code","as":"agent","type":"created","title":"Epic: Release pipeline (GitHub Actions)","state":"Todo"}
+{"at":"2026-09-17T17:12:03Z","id":7,"by":"claude-code","as":"agent","type":"created","title":"Epic: Docs, schema, and migration from cli-merge-pipeline","state":"Todo"}
+{"at":"2026-09-17T17:12:21Z","id":8,"by":"claude-code","as":"agent","type":"created","title":"Update Rust toolchain and pin it","state":"Todo"}
+{"at":"2026-09-17T17:12:21Z","id":9,"by":"claude-code","as":"agent","type":"created","title":"Cargo project skeleton with lib + bin and release profile","state":"Todo"}
+{"at":"2026-09-17T17:12:21Z","id":10,"by":"claude-code","as":"agent","type":"created","title":"CI workflow: fmt, clippy, test on ubuntu and macos","state":"Todo"}
+{"at":"2026-09-17T17:12:21Z","id":11,"by":"claude-code","as":"agent","type":"created","title":"Repo hygiene: .gitignore, example config dir, AGENTS.md cargo gate","state":"Todo"}
+{"at":"2026-09-17T17:12:21Z","id":9,"by":"claude-code","as":"agent","type":"blocked","blocker":8}
+{"at":"2026-09-17T17:12:21Z","id":10,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:12:21Z","id":11,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:13:05Z","id":12,"by":"claude-code","as":"agent","type":"created","title":"Prompter trait and answer model","state":"Todo"}
+{"at":"2026-09-17T17:13:05Z","id":13,"by":"claude-code","as":"agent","type":"created","title":"Workflow config loading and ordering","state":"Todo"}
+{"at":"2026-09-17T17:13:05Z","id":14,"by":"claude-code","as":"agent","type":"created","title":"Pipeline → branch mapping and step generation","state":"Todo"}
+{"at":"2026-09-17T17:13:05Z","id":15,"by":"claude-code","as":"agent","type":"created","title":"Git wrapper over std::process::Command","state":"Todo"}
+{"at":"2026-09-17T17:13:05Z","id":16,"by":"claude-code","as":"agent","type":"created","title":"package.json version-conflict resolver","state":"Todo"}
+{"at":"2026-09-17T17:13:05Z","id":17,"by":"claude-code","as":"agent","type":"created","title":"Workflow runner: run, dry-run, test","state":"Todo"}
+{"at":"2026-09-17T17:13:05Z","id":14,"by":"claude-code","as":"agent","type":"blocked","blocker":12}
+{"at":"2026-09-17T17:13:05Z","id":16,"by":"claude-code","as":"agent","type":"blocked","blocker":12}
+{"at":"2026-09-17T17:13:05Z","id":16,"by":"claude-code","as":"agent","type":"blocked","blocker":15}
+{"at":"2026-09-17T17:13:05Z","id":17,"by":"claude-code","as":"agent","type":"blocked","blocker":12}
+{"at":"2026-09-17T17:13:05Z","id":17,"by":"claude-code","as":"agent","type":"blocked","blocker":14}
+{"at":"2026-09-17T17:13:05Z","id":17,"by":"claude-code","as":"agent","type":"blocked","blocker":15}
+{"at":"2026-09-17T17:13:05Z","id":17,"by":"claude-code","as":"agent","type":"blocked","blocker":16}
+{"at":"2026-09-17T17:13:18Z","id":18,"by":"claude-code","as":"agent","type":"created","title":"clap command surface","state":"Todo"}
+{"at":"2026-09-17T17:13:18Z","id":19,"by":"claude-code","as":"agent","type":"created","title":"Config directory resolution","state":"Todo"}
+{"at":"2026-09-17T17:13:18Z","id":20,"by":"claude-code","as":"agent","type":"created","title":"inquire-backed Prompter, colors, title, error display","state":"Todo"}
+{"at":"2026-09-17T17:13:18Z","id":21,"by":"claude-code","as":"agent","type":"created","title":"Wire the interactive flow end to end","state":"Todo"}
+{"at":"2026-09-17T17:13:18Z","id":21,"by":"claude-code","as":"agent","type":"blocked","blocker":18}
+{"at":"2026-09-17T17:13:18Z","id":21,"by":"claude-code","as":"agent","type":"blocked","blocker":19}
+{"at":"2026-09-17T17:13:18Z","id":21,"by":"claude-code","as":"agent","type":"blocked","blocker":20}
+{"at":"2026-09-17T17:13:33Z","id":22,"by":"claude-code","as":"agent","type":"created","title":"JSON-RPC 2.0 stdio loop and MCP handshake","state":"Todo"}
+{"at":"2026-09-17T17:13:33Z","id":23,"by":"claude-code","as":"agent","type":"created","title":"Tool registry with JSON schemas","state":"Todo"}
+{"at":"2026-09-17T17:13:33Z","id":24,"by":"claude-code","as":"agent","type":"created","title":"Read-only tools: list_workflows, inspect_repo, plan_workflow","state":"Todo"}
+{"at":"2026-09-17T17:13:33Z","id":25,"by":"claude-code","as":"agent","type":"created","title":"run_workflow tool over the non-interactive Prompter","state":"Todo"}
+{"at":"2026-09-17T17:13:33Z","id":26,"by":"claude-code","as":"agent","type":"created","title":"MCP integration test and `install` wiring subcommand","state":"Todo"}
+{"at":"2026-09-17T17:13:33Z","id":23,"by":"claude-code","as":"agent","type":"blocked","blocker":22}
+{"at":"2026-09-17T17:13:33Z","id":24,"by":"claude-code","as":"agent","type":"blocked","blocker":23}
+{"at":"2026-09-17T17:13:33Z","id":25,"by":"claude-code","as":"agent","type":"blocked","blocker":23}
+{"at":"2026-09-17T17:13:33Z","id":26,"by":"claude-code","as":"agent","type":"blocked","blocker":24}
+{"at":"2026-09-17T17:13:33Z","id":26,"by":"claude-code","as":"agent","type":"blocked","blocker":25}
+{"at":"2026-09-17T17:13:55Z","id":27,"by":"claude-code","as":"agent","type":"created","title":"Install layout module: host target, locate install, version ordering","state":"Todo"}
+{"at":"2026-09-17T17:13:55Z","id":28,"by":"claude-code","as":"agent","type":"created","title":"Release lookup against the GitHub API","state":"Todo"}
+{"at":"2026-09-17T17:13:55Z","id":29,"by":"claude-code","as":"agent","type":"created","title":"Download, verify, install, prune","state":"Todo"}
+{"at":"2026-09-17T17:13:55Z","id":30,"by":"claude-code","as":"agent","type":"created","title":"`upgrade` and `uninstall` subcommands","state":"Todo"}
+{"at":"2026-09-17T17:13:55Z","id":31,"by":"claude-code","as":"agent","type":"created","title":"install.sh and install.ps1","state":"Todo"}
+{"at":"2026-09-17T17:13:55Z","id":32,"by":"claude-code","as":"agent","type":"created","title":"Passive update nudge (optional)","state":"Todo"}
+{"at":"2026-09-17T17:13:55Z","id":28,"by":"claude-code","as":"agent","type":"blocked","blocker":27}
+{"at":"2026-09-17T17:13:55Z","id":29,"by":"claude-code","as":"agent","type":"blocked","blocker":27}
+{"at":"2026-09-17T17:13:55Z","id":30,"by":"claude-code","as":"agent","type":"blocked","blocker":28}
+{"at":"2026-09-17T17:13:55Z","id":30,"by":"claude-code","as":"agent","type":"blocked","blocker":29}
+{"at":"2026-09-17T17:13:55Z","id":31,"by":"claude-code","as":"agent","type":"blocked","blocker":27}
+{"at":"2026-09-17T17:13:55Z","id":32,"by":"claude-code","as":"agent","type":"blocked","blocker":28}
+{"at":"2026-09-17T17:13:55Z","id":32,"by":"claude-code","as":"agent","type":"blocked","blocker":30}
+{"at":"2026-09-17T17:14:06Z","id":33,"by":"claude-code","as":"agent","type":"created","title":"Build matrix producing gzipped assets per target","state":"Todo"}
+{"at":"2026-09-17T17:14:06Z","id":34,"by":"claude-code","as":"agent","type":"created","title":"Gate job: tag equals Cargo version, fmt, clippy, tests","state":"Todo"}
+{"at":"2026-09-17T17:14:06Z","id":35,"by":"claude-code","as":"agent","type":"created","title":"Verify job: checksums.txt and installer smoke tests on the built bytes","state":"Todo"}
+{"at":"2026-09-17T17:14:06Z","id":36,"by":"claude-code","as":"agent","type":"created","title":"Publish job and first tagged release","state":"Todo"}
+{"at":"2026-09-17T17:14:06Z","id":35,"by":"claude-code","as":"agent","type":"blocked","blocker":33}
+{"at":"2026-09-17T17:14:06Z","id":36,"by":"claude-code","as":"agent","type":"blocked","blocker":34}
+{"at":"2026-09-17T17:14:06Z","id":36,"by":"claude-code","as":"agent","type":"blocked","blocker":35}
+{"at":"2026-09-17T17:14:13Z","id":37,"by":"claude-code","as":"agent","type":"created","title":"README: install, workflows, flags, actions, MCP, upgrade","state":"Todo"}
+{"at":"2026-09-17T17:14:13Z","id":38,"by":"claude-code","as":"agent","type":"created","title":"Publish workflow JSON schema","state":"Todo"}
+{"at":"2026-09-17T17:14:13Z","id":39,"by":"claude-code","as":"agent","type":"created","title":"Migration notes and CHANGELOG","state":"Todo"}
+{"at":"2026-09-17T17:14:32Z","id":2,"by":"claude-code","as":"agent","type":"blocked","blocker":1}
+{"at":"2026-09-17T17:14:34Z","id":3,"by":"claude-code","as":"agent","type":"blocked","blocker":2}
+{"at":"2026-09-17T17:14:36Z","id":4,"by":"claude-code","as":"agent","type":"blocked","blocker":2}
+{"at":"2026-09-17T17:14:38Z","id":5,"by":"claude-code","as":"agent","type":"blocked","blocker":1}
+{"at":"2026-09-17T17:14:41Z","id":6,"by":"claude-code","as":"agent","type":"blocked","blocker":3}
+{"at":"2026-09-17T17:14:41Z","id":6,"by":"claude-code","as":"agent","type":"blocked","blocker":5}
+{"at":"2026-09-17T17:14:43Z","id":7,"by":"claude-code","as":"agent","type":"blocked","blocker":3}
+{"at":"2026-09-17T17:14:43Z","id":7,"by":"claude-code","as":"agent","type":"blocked","blocker":4}
+{"at":"2026-09-17T17:14:43Z","id":7,"by":"claude-code","as":"agent","type":"blocked","blocker":5}
+{"at":"2026-09-17T17:14:45Z","id":12,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:14:47Z","id":13,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:14:49Z","id":15,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:14:52Z","id":18,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:14:54Z","id":19,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:14:56Z","id":20,"by":"claude-code","as":"agent","type":"blocked","blocker":12}
+{"at":"2026-09-17T17:14:58Z","id":21,"by":"claude-code","as":"agent","type":"blocked","blocker":17}
+{"at":"2026-09-17T17:15:00Z","id":22,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:15:00Z","id":22,"by":"claude-code","as":"agent","type":"blocked","blocker":18}
+{"at":"2026-09-17T17:15:02Z","id":24,"by":"claude-code","as":"agent","type":"blocked","blocker":13}
+{"at":"2026-09-17T17:15:02Z","id":24,"by":"claude-code","as":"agent","type":"blocked","blocker":14}
+{"at":"2026-09-17T17:15:02Z","id":24,"by":"claude-code","as":"agent","type":"blocked","blocker":15}
+{"at":"2026-09-17T17:15:02Z","id":24,"by":"claude-code","as":"agent","type":"blocked","blocker":19}
+{"at":"2026-09-17T17:15:05Z","id":25,"by":"claude-code","as":"agent","type":"blocked","blocker":17}
+{"at":"2026-09-17T17:15:07Z","id":27,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:15:09Z","id":30,"by":"claude-code","as":"agent","type":"blocked","blocker":18}
+{"at":"2026-09-17T17:15:11Z","id":31,"by":"claude-code","as":"agent","type":"blocked","blocker":18}
+{"at":"2026-09-17T17:15:14Z","id":33,"by":"claude-code","as":"agent","type":"blocked","blocker":9}
+{"at":"2026-09-17T17:15:16Z","id":34,"by":"claude-code","as":"agent","type":"blocked","blocker":10}
+{"at":"2026-09-17T17:15:18Z","id":35,"by":"claude-code","as":"agent","type":"blocked","blocker":21}
+{"at":"2026-09-17T17:15:18Z","id":35,"by":"claude-code","as":"agent","type":"blocked","blocker":22}
+{"at":"2026-09-17T17:15:18Z","id":35,"by":"claude-code","as":"agent","type":"blocked","blocker":31}
+{"at":"2026-09-17T17:15:20Z","id":36,"by":"claude-code","as":"agent","type":"blocked","blocker":21}
+{"at":"2026-09-17T17:15:20Z","id":36,"by":"claude-code","as":"agent","type":"blocked","blocker":30}
+{"at":"2026-09-17T17:15:23Z","id":37,"by":"claude-code","as":"agent","type":"blocked","blocker":21}
+{"at":"2026-09-17T17:15:23Z","id":37,"by":"claude-code","as":"agent","type":"blocked","blocker":26}
+{"at":"2026-09-17T17:15:23Z","id":37,"by":"claude-code","as":"agent","type":"blocked","blocker":30}
+{"at":"2026-09-17T17:15:25Z","id":38,"by":"claude-code","as":"agent","type":"blocked","blocker":11}
+{"at":"2026-09-17T17:15:27Z","id":39,"by":"claude-code","as":"agent","type":"blocked","blocker":21}
+{"at":"2026-09-17T17:45:14Z","id":8,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-17T17:45:14Z","id":8,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-17T17:45:28Z","id":8,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-17T17:45:30Z","id":9,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-17T17:45:30Z","id":9,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-17T17:47:06Z","id":9,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-17T17:47:08Z","id":10,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-17T17:47:08Z","id":10,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-17T17:47:37Z","id":10,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-17T17:47:39Z","id":11,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-17T17:47:39Z","id":11,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-17T17:48:16Z","id":11,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-17T17:48:18Z","id":1,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:17:47Z","id":12,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:17:47Z","id":12,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:18:06Z","id":33,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:18:06Z","id":33,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:18:08Z","id":34,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:18:08Z","id":34,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:18:10Z","id":38,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:18:10Z","id":38,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:19:24Z","id":33,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:19:27Z","id":34,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:19:28Z","id":38,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:19:33Z","id":12,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:19:35Z","id":13,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:19:35Z","id":13,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:19:36Z","id":15,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:19:36Z","id":15,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:22:33Z","id":13,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:22:41Z","id":15,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:22:42Z","id":14,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:22:42Z","id":14,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:22:44Z","id":16,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:22:44Z","id":16,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:26:03Z","id":14,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:26:04Z","id":16,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:26:05Z","id":17,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:26:05Z","id":17,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:28:16Z","id":17,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:28:23Z","id":2,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:30:01Z","id":18,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:30:01Z","id":18,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:30:35Z","id":27,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:30:35Z","id":27,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:31:48Z","id":18,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:31:49Z","id":19,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:31:49Z","id":19,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:39:02Z","id":19,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:39:04Z","id":20,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:39:04Z","id":20,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:39:34Z","id":27,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:39:36Z","id":28,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:39:37Z","id":29,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:39:38Z","id":30,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:39:40Z","id":31,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:39:41Z","id":5,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:40:38Z","id":20,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:40:40Z","id":21,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:40:40Z","id":21,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:43:27Z","id":21,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:43:29Z","id":32,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:43:29Z","id":32,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:43:34Z","id":32,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:43:38Z","id":3,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:45:33Z","id":22,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:45:33Z","id":22,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:45:57Z","id":35,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:45:57Z","id":35,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:45:58Z","id":39,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:45:58Z","id":39,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:47:31Z","id":39,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:47:54Z","id":23,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:47:54Z","id":23,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:48:26Z","id":35,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:52:56Z","id":24,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:52:56Z","id":24,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:52:57Z","id":25,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:52:57Z","id":25,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:52:58Z","id":26,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:52:58Z","id":26,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:53:35Z","id":22,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:53:36Z","id":23,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:53:37Z","id":24,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:53:39Z","id":25,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:53:40Z","id":26,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:53:43Z","id":4,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-21T20:53:58Z","id":37,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-21T20:53:58Z","id":37,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-21T20:55:09Z","id":37,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-21T20:55:13Z","id":7,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}

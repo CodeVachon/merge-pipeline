@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/CodeVachon/merge-pipeline/main/schema/config.json",
+  "disabled": false,
+  "name": "Canary Staging Pipeline",
+  "description": "Deploy a Canary to Staging",
+  "pipeline": [
+    "^Patch-*",
+    "^Release-*",
+    "^Release-*",
+    "^staging-canary$"
+  ],
+  "order": 3
+}

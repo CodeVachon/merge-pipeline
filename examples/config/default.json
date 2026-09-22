@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/CodeVachon/merge-pipeline/main/schema/config.json",
+  "disabled": true,
+  "name": "Default Pipeline",
+  "description": "Default Pipeline",
+  "order": 100,
+  "pipeline": [
+    "staging",
+    "main"
+  ]
+}
