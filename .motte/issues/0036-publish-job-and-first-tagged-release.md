@@ -1,12 +1,12 @@
 ---
 id: 36
 title: Publish job and first tagged release
-state: Todo
+state: Done
 parent: 6
 labels: [release]
 blockedBy: [21, 30, 34, 35]
 created: 2026-09-17T17:14:06Z
-updated: 2026-09-22T15:37:56Z
+updated: 2026-09-23T14:28:29Z
 ---
 
 ## Description
@@ -26,3 +26,7 @@ Workflow half done: `publish` in release.yml needs [gate, verify, verify-windows
 ### 2026-09-22T15:37:56Z — claude-code (agent)
 
 2026-09-22: remote created by the user and the full tree pushed as commit 776995a on main (github.com/CodeVachon/merge-pipeline, public). Commits use the CodeVachon noreply identity, set repo-locally to match motte. Remaining human step is unchanged: once CI is green on main, `git tag v0.1.0 && git push origin v0.1.0` triggers release.yml.
+
+### 2026-09-23T14:28:04Z — claude-code (agent)
+
+Released by the user: tag v0.1.0 pushed 2026-09-22 from commit 776995a; release.yml run 35752625232 succeeded in 6m30s (gate, five-target build, verify, verify-windows, publish) and the pre-release is live at github.com/CodeVachon/merge-pipeline/releases/tag/v0.1.0. Note: v0.1.0 predates commit 6ff1bfd (config doctor/init, default config on install, branch sync); those need a v0.1.1 or v0.2.0 tag to ship.

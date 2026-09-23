@@ -27,7 +27,7 @@ All notable changes to this project are documented here. The format follows
 
 - The pre-run fetch is now `git fetch --prune origin` (was `git fetch`).
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-09-22
 
 First release of the Rust rewrite of `@codevachon/cli-merge-pipeline`. Functionally equivalent
 to the Bun/TypeScript tool for the interactive workflow run; everything else below is new.

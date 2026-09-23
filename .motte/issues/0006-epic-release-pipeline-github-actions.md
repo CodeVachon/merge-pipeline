@@ -1,11 +1,11 @@
 ---
 id: 6
 title: "Epic: Release pipeline (GitHub Actions)"
-state: Todo
+state: Done
 labels: [release]
 blockedBy: [3, 5]
 created: 2026-09-17T17:11:56Z
-updated: 2026-09-21T20:55:14Z
+updated: 2026-09-23T14:28:29Z
 ---
 
 ## Description
