@@ -260,9 +260,10 @@ main() {
     fi
 
     say ""
-    info "This does not change your current shell — open a new terminal, then:"
+    info "If $BIN_DIR was already on your PATH, merge-pipeline is ready to use now."
     info "  merge-pipeline --help     everything"
-    info "  merge-pipeline upgrade    update in place later"
+    info "  merge-pipeline upgrade    update in place later (no restart needed)"
+    info "  merge-pipeline versions   list, switch between, or remove installed versions"
 }
 
 main "$@"

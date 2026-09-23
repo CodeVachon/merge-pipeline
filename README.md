@@ -243,7 +243,7 @@ Question keys, for `answers`: `step:<source>>><target>` (confirm a merge), `push
 ## Keeping it up to date
 
 ```sh
-merge-pipeline upgrade            # install the newest release
+merge-pipeline upgrade            # install the newest release and switch to it
 merge-pipeline upgrade --check    # just report whether one exists
 merge-pipeline upgrade 0.2.0      # install a specific version (downgrades warn, then proceed)
 merge-pipeline upgrade --keep 3   # how many versions to leave on disk (default 2)
@@ -252,10 +252,28 @@ merge-pipeline uninstall          # show what would be removed
 merge-pipeline uninstall --yes    # remove ~/.merge-pipeline and the symlink it owns
 ```
 
-`upgrade` only works on a managed installation (one made by `install.sh`, `install.ps1` or a
-previous `upgrade`). A binary built from source or copied by hand is told how to install a
-managed copy instead. The version currently running is never pruned. Your workflow files are
-never touched by `uninstall`.
+### Managing installed versions
+
+Several versions can sit side by side under `~/.merge-pipeline/versions/`, and you switch
+between them the way `nvm use` switches Node versions:
+
+| Command | What it does |
+|---|---|
+| `merge-pipeline versions` | List installed versions, newest first. `*` marks the active one; `running` marks the binary that is executing. `--check` asks GitHub for the newest release; `--json` for scripts. |
+| `merge-pipeline use <version>` | Make `<version>` the active one. If it is not installed, it is downloaded and verified first, exactly like `upgrade <version>`. |
+| `merge-pipeline versions remove <version>...` | Delete versions from disk. The active version and the one running are never removed; each refusal says why, and the command exits 1 if anything was refused or missing. |
+| `merge-pipeline versions prune [--keep N]` | Delete all but the newest N (default 2), again never the active or running one. |
+
+**No shell restart is ever needed.** The command on your PATH, `~/.local/bin/merge-pipeline`, is a
+symlink to `~/.merge-pipeline/current/bin/merge-pipeline`, and `current` is a symlink to one
+version directory. `upgrade` and `use` only move the `current` link, so the very next
+`merge-pipeline` command runs the version you chose. Nothing on PATH changes, so there is no
+`hash -r` and no new terminal.
+
+`upgrade`, `versions` and `use` only work on a managed installation (one made by `install.sh`,
+`install.ps1` or a previous `upgrade`). A binary built from source or copied by hand is told how
+to install a managed copy instead. Your workflow files are never touched by any of these,
+including `uninstall`.
 
 At the end of an interactive run on a terminal, once a day, a dimmed line mentions a newer
 release if one is known. Set `MERGE_PIPELINE_NO_UPDATE_CHECK=1` to turn that off; it is also

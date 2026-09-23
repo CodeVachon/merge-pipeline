@@ -1,12 +1,13 @@
 ---
 id: 53
 title: "Docs: README version management section, CHANGELOG, install.sh wording"
-state: Todo
+state: In Progress
 parent: 50
+assignee: claude-code
 labels: [self-update, cli]
 blockedBy: [52]
 created: 2026-09-23T15:16:17Z
-updated: 2026-09-23T15:16:17Z
+updated: 2026-09-23T15:29:02Z
 ---
 
 ## Description
