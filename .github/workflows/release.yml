@@ -147,16 +147,15 @@ jobs:
   # Verify happens before publish, on the exact bytes the build produced. dist/ is served over a
   # local HTTP server so install.sh fetches from it the same way it would fetch from a GitHub
   # release, and checksums.txt is written here because it must cover every asset at once.
-  verify:
-    name: verify (linux, install.sh)
-    needs: [gate, build]
+  # Assemble the release bundle once: every built asset plus checksums.txt. Both verify jobs and
+  # publish consume this same artifact, so the bytes that get installed and tested on each platform
+  # are the bytes that get published.
+  checksums:
+    name: checksums
+    needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
@@ -168,6 +167,31 @@ jobs:
         run: |
           sha256sum *.gz > checksums.txt
           cat checksums.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: |
+            dist/*.gz
+            dist/checksums.txt
+          retention-days: 1
+          if-no-files-found: error
+
+  # The two installer checks run in parallel; each needs only the assembled bundle.
+  verify:
+    name: verify (linux, install.sh)
+    needs: [gate, checksums]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
 
       # A static stand-in for the GitHub releases API, so `upgrade --check` can resolve "latest"
       # without the release existing yet. python's http.server serves any path that is a file.
@@ -203,24 +227,12 @@ jobs:
           MERGE_PIPELINE_API_BASE: http://127.0.0.1:8123
         run: sh scripts/smoke.sh "${{ runner.temp }}/merge-pipeline-bin/merge-pipeline" "${{ needs.gate.outputs.version }}"
 
-      - name: Remove the API stand-in before publishing dist/
-        run: rm -rf dist/repos
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-dist
-          path: |
-            dist/*.gz
-            dist/checksums.txt
-          retention-days: 1
-          if-no-files-found: error
-
   # The Windows half. install.ps1 is exercised against the same locally served bytes; the smoke test
   # is shallower (no git fixture) because the interesting logic is identical across platforms and
   # is covered above.
   verify-windows:
     name: verify (windows, install.ps1)
-    needs: [gate, verify]
+    needs: [gate, checksums]
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
