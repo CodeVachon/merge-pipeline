@@ -230,3 +230,10 @@
 {"at":"2026-09-22T19:32:38Z","id":47,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
 {"at":"2026-09-22T19:35:41Z","id":48,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
 {"at":"2026-09-22T19:35:45Z","id":44,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-23T15:15:25Z","id":49,"by":"claude-code","as":"agent","type":"created","title":"Epic: pull-request workflow and useful release notes","state":"Todo"}
+{"at":"2026-09-23T15:15:25Z","id":50,"by":"claude-code","as":"agent","type":"created","title":"Epic: nvm-style version management (versions, use, remove, prune)","state":"Todo"}
+{"at":"2026-09-23T15:16:17Z","id":51,"by":"claude-code","as":"agent","type":"created","title":"Version store: list, switch, remove primitives in selfupdate","state":"Todo"}
+{"at":"2026-09-23T15:16:17Z","id":52,"by":"claude-code","as":"agent","type":"created","title":"CLI: `versions`, `use`, `versions remove`, `versions prune`; fix the restart message","state":"Todo"}
+{"at":"2026-09-23T15:16:17Z","id":53,"by":"claude-code","as":"agent","type":"created","title":"Docs: README version management section, CHANGELOG, install.sh wording","state":"Todo"}
+{"at":"2026-09-23T15:16:17Z","id":52,"by":"claude-code","as":"agent","type":"blocked","blocker":51}
+{"at":"2026-09-23T15:16:17Z","id":53,"by":"claude-code","as":"agent","type":"blocked","blocker":52}

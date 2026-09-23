@@ -6,7 +6,7 @@ parent: 6
 labels: [release]
 blockedBy: [21, 30, 34, 35]
 created: 2026-09-17T17:14:06Z
-updated: 2026-09-23T14:28:29Z
+updated: 2026-09-23T15:08:10Z
 ---
 
 ## Description
@@ -30,3 +30,7 @@ Workflow half done: `publish` in release.yml needs [gate, verify, verify-windows
 ### 2026-09-23T14:28:04Z — claude-code (agent)
 
 Released by the user: tag v0.1.0 pushed 2026-09-22 from commit 776995a; release.yml run 35752625232 succeeded in 6m30s (gate, five-target build, verify, verify-windows, publish) and the pre-release is live at github.com/CodeVachon/merge-pipeline/releases/tag/v0.1.0. Note: v0.1.0 predates commit 6ff1bfd (config doctor/init, default config on install, branch sync); those need a v0.1.1 or v0.2.0 tag to ship.
+
+### 2026-09-23T15:08:10Z — claude-code (agent)
+
+2026-09-23, user decision: tagged builds are full releases, not pre-releases. publish now sets prerelease: false and make_latest: true. The existing v0.1.0 release was flipped to a full release via gh so /releases/latest resolves for the installer and `upgrade --check` without the fallback path.

@@ -34,6 +34,24 @@ them in agreement, so change both together.
 User-facing behaviour is documented in `README.md`; deviations from the original Bun tool go in
 `MIGRATING.md` and `CHANGELOG.md`. Keep those in step with code changes.
 
+## Branching and pull requests
+
+Nothing lands on `main` directly. Every change, however small, goes through a pull request so
+GitHub's generated release notes have something to say.
+
+1. Branch from `main`: `feat/<topic>`, `fix/<topic>`, `docs/<topic>`, `ci/<topic>`.
+2. Commit as usual (signed; the repository's git identity is the global one).
+3. Open the PR with `gh pr create`. The **PR title is the release-note line**: describe the change
+   for a user of the tool. Apply exactly one label from `feature`, `bug`, `docs`, `ci`, `chore`
+   (`.github/release.yml` maps these to release-note sections; `skip-changelog` hides a PR).
+4. Update `CHANGELOG.md` under `Unreleased` in the same PR.
+5. Squash-merge, so one PR is one commit on `main` and one line in the notes.
+6. Releases: bump the version in `Cargo.toml`, move `Unreleased` to a dated heading, merge that
+   PR, then create the GitHub release with tag `v<version>`; `release.yml` builds and attaches
+   the assets and refuses a tag that does not match `Cargo.toml`.
+
+Work is still tracked in motte; reference the issue numbers in the PR body.
+
 <!-- motte:start -->
 
 ## Tracking work with motte
