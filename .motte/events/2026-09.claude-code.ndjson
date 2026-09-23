@@ -237,3 +237,5 @@
 {"at":"2026-09-23T15:16:17Z","id":53,"by":"claude-code","as":"agent","type":"created","title":"Docs: README version management section, CHANGELOG, install.sh wording","state":"Todo"}
 {"at":"2026-09-23T15:16:17Z","id":52,"by":"claude-code","as":"agent","type":"blocked","blocker":51}
 {"at":"2026-09-23T15:16:17Z","id":53,"by":"claude-code","as":"agent","type":"blocked","blocker":52}
+{"at":"2026-09-23T15:22:33Z","id":51,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-23T15:22:33Z","id":51,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}

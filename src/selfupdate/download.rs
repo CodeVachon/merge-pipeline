@@ -173,7 +173,12 @@ pub fn install_binary(
 }
 
 /// Replace `<root>/current` with a link to `version_dir`.
-fn point_current_at(root: &Path, version_dir: &Path) -> std::io::Result<()> {
+///
+/// This is the one place the active version changes: `install_binary` (upgrade), `use`
+/// (switching between installed versions) and the installers all end here. The PATH symlink
+/// points at `current`, so the change is visible to the very next invocation, with no shell
+/// restart.
+pub fn point_current_at(root: &Path, version_dir: &Path) -> std::io::Result<()> {
     let current = root.join("current");
     match fs::symlink_metadata(&current) {
         Ok(meta) if meta.file_type().is_symlink() => fs::remove_file(&current)?,

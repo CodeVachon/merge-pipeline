@@ -18,6 +18,7 @@ pub mod layout;
 pub mod nudge;
 pub mod releases;
 pub mod upgrade;
+pub mod versions;
 
 use std::io::Write;
 
@@ -31,6 +32,10 @@ pub use layout::{
 };
 pub use releases::{ReleaseError, resolve_latest_version};
 pub use upgrade::{UninstallOptions, UpgradeContext, UpgradeError, UpgradeOptions};
+pub use versions::{
+    Kept, ListOptions, PruneOptions, RemoveOptions, RemoveReport, Switched, UseOptions,
+    VersionEntry, VersionsError,
+};
 
 use crate::cli::{UninstallArgs, UpgradeArgs};
 

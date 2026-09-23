@@ -1,11 +1,12 @@
 ---
 id: 51
 title: "Version store: list, switch, remove primitives in selfupdate"
-state: Todo
+state: In Progress
 parent: 50
+assignee: claude-code
 labels: [self-update, cli]
 created: 2026-09-23T15:16:17Z
-updated: 2026-09-23T15:16:17Z
+updated: 2026-09-23T15:22:33Z
 ---
 
 ## Description
