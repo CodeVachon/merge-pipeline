@@ -266,6 +266,60 @@ impl Git {
         let output = self.call(&["ls-files", "--unmerged"])?;
         Ok(parse_unmerged(&output))
     }
+
+    /// `git fetch --prune origin`: learn origin's state and drop remote-tracking refs for
+    /// branches it no longer has, which is what makes stale local branches show as `[gone]`.
+    pub fn fetch_prune(&mut self) -> Result<String, GitError> {
+        self.call(&["fetch", "--prune", "origin"])
+    }
+
+    /// Branches on `origin`, from `git branch -r`. `origin/HEAD -> ...` and other remotes are skipped.
+    pub fn remote_branches(&mut self) -> Result<Vec<RemoteBranch>, GitError> {
+        let output = self.call(&["branch", "-r"])?;
+        Ok(parse_remote_branches(&output))
+    }
+
+    /// Every local branch with its configured upstream and whether that upstream is gone.
+    pub fn local_branch_tracking(&mut self) -> Result<Vec<BranchTracking>, GitError> {
+        let output = self.call(&[
+            "for-each-ref",
+            "--format=%(refname:short)%09%(upstream:short)%09%(upstream:track)",
+            "refs/heads/",
+        ])?;
+        Ok(parse_branch_tracking(&output))
+    }
+
+    /// `git branch --track <name> <remote_ref>` without checking it out.
+    pub fn create_tracking_branch(
+        &mut self,
+        name: &str,
+        remote_ref: &str,
+    ) -> Result<String, GitError> {
+        self.call(&["branch", "--track", name, remote_ref])
+    }
+
+    /// `git branch -D <name>` when `force`, else `-d` (refuses unmerged branches).
+    pub fn delete_branch(&mut self, name: &str, force: bool) -> Result<String, GitError> {
+        let flag = if force { "-D" } else { "-d" };
+        self.call(&["branch", flag, name])
+    }
+
+    /// The branch `origin/HEAD` points at, or `None` when the symbolic ref is not set.
+    pub fn remote_default_branch(&mut self) -> Result<Option<String>, GitError> {
+        match self.call(&["symbolic-ref", "refs/remotes/origin/HEAD"]) {
+            Ok(full) => Ok(full
+                .trim()
+                .strip_prefix("refs/remotes/origin/")
+                .filter(|name| !name.is_empty())
+                .map(str::to_string)),
+            Err(GitError::Command { stderr, .. })
+                if stderr.contains("not a symbolic ref") || stderr.contains("No such file") =>
+            {
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
+    }
 }
 
 /// Parse `git ls-files --unmerged` output: `<mode> <sha> <stage>\t<path>` per line.
@@ -286,6 +340,65 @@ pub fn parse_unmerged(output: &str) -> Vec<String> {
         }
     }
     paths
+}
+
+/// One entry of `git branch -r` on origin.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RemoteBranch {
+    /// Branch name as it would be called locally, e.g. `Patch-v0.1.3`.
+    pub name: String,
+    /// The remote-tracking ref, e.g. `origin/Patch-v0.1.3`.
+    pub remote_ref: String,
+}
+
+/// A local branch and the state of its configured upstream.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BranchTracking {
+    pub name: String,
+    /// `origin/<name>` when an upstream is configured, `None` when the branch was never pushed.
+    pub upstream: Option<String>,
+    /// True when git reports the upstream as `[gone]`: it was configured but no longer exists.
+    pub gone: bool,
+}
+
+/// Parse `git branch -r` output, keeping `origin/<name>` entries only.
+pub fn parse_remote_branches(output: &str) -> Vec<RemoteBranch> {
+    output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.contains(" -> "))
+        .filter_map(|line| {
+            let name = line.strip_prefix("origin/")?;
+            (!name.is_empty()).then(|| RemoteBranch {
+                name: name.to_string(),
+                remote_ref: line.to_string(),
+            })
+        })
+        .collect()
+}
+
+/// Parse `for-each-ref --format='%(refname:short)%09%(upstream:short)%09%(upstream:track)'`.
+pub fn parse_branch_tracking(output: &str) -> Vec<BranchTracking> {
+    output
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| {
+            let mut parts = line.splitn(3, '\t');
+            let name = parts.next().unwrap_or_default().trim().to_string();
+            let upstream = parts
+                .next()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string);
+            let track = parts.next().unwrap_or_default();
+            BranchTracking {
+                name,
+                upstream,
+                gone: track.contains("[gone]"),
+            }
+        })
+        .filter(|entry| !entry.name.is_empty())
+        .collect()
 }
 
 /// Test double: canned stdout keyed by the first git argument, every call recorded.
@@ -468,5 +581,104 @@ mod tests {
             }
         ));
         assert!(error.to_string().contains("boom"));
+    }
+    #[test]
+    fn remote_branches_skips_the_head_pointer_and_other_remotes() {
+        let mut git = ScriptedRunner::new()
+            .stdout(
+                "branch",
+                "  origin/HEAD -> origin/main\n  origin/main\n  origin/Patch-v0.1.3\n  upstream/main\n\n",
+            )
+            .into_git();
+        assert_eq!(
+            git.remote_branches().unwrap(),
+            vec![
+                RemoteBranch {
+                    name: "main".into(),
+                    remote_ref: "origin/main".into()
+                },
+                RemoteBranch {
+                    name: "Patch-v0.1.3".into(),
+                    remote_ref: "origin/Patch-v0.1.3".into()
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn branch_tracking_reads_upstream_and_gone_from_for_each_ref() {
+        let runner = ScriptedRunner::new().stdout(
+            "for-each-ref",
+            "main\torigin/main\t\nPatch-v0.1.1\torigin/Patch-v0.1.1\t[gone]\nPatch-v0.1.2\t\t\nRelease-0.1.0\torigin/Release-0.1.0\t[ahead 1]\n",
+        );
+        let calls = runner.calls_handle();
+        let mut git = runner.into_git();
+        let tracking = git.local_branch_tracking().unwrap();
+        assert_eq!(
+            tracking,
+            vec![
+                BranchTracking {
+                    name: "main".into(),
+                    upstream: Some("origin/main".into()),
+                    gone: false
+                },
+                BranchTracking {
+                    name: "Patch-v0.1.1".into(),
+                    upstream: Some("origin/Patch-v0.1.1".into()),
+                    gone: true
+                },
+                BranchTracking {
+                    name: "Patch-v0.1.2".into(),
+                    upstream: None,
+                    gone: false
+                },
+                BranchTracking {
+                    name: "Release-0.1.0".into(),
+                    upstream: Some("origin/Release-0.1.0".into()),
+                    gone: false
+                },
+            ]
+        );
+        assert_eq!(
+            calls.borrow()[0],
+            vec![
+                "for-each-ref",
+                "--format=%(refname:short)%09%(upstream:short)%09%(upstream:track)",
+                "refs/heads/"
+            ]
+        );
+    }
+
+    #[test]
+    fn sync_primitives_issue_the_expected_git_commands() {
+        let runner = ScriptedRunner::new().stdout("symbolic-ref", "refs/remotes/origin/main\n");
+        let calls = runner.calls_handle();
+        let mut git = runner.into_git();
+        git.fetch_prune().unwrap();
+        git.create_tracking_branch("Patch-v0.1.3", "origin/Patch-v0.1.3")
+            .unwrap();
+        git.delete_branch("Patch-v0.1.1", true).unwrap();
+        git.delete_branch("banana", false).unwrap();
+        assert_eq!(git.remote_default_branch().unwrap(), Some("main".into()));
+        let calls = calls.borrow();
+        assert_eq!(calls[0], vec!["fetch", "--prune", "origin"]);
+        assert_eq!(
+            calls[1],
+            vec!["branch", "--track", "Patch-v0.1.3", "origin/Patch-v0.1.3"]
+        );
+        assert_eq!(calls[2], vec!["branch", "-D", "Patch-v0.1.1"]);
+        assert_eq!(calls[3], vec!["branch", "-d", "banana"]);
+    }
+
+    #[test]
+    fn remote_default_branch_is_none_when_origin_head_is_unset() {
+        let mut git = ScriptedRunner::new()
+            .fail(
+                "symbolic-ref",
+                128,
+                "fatal: ref refs/remotes/origin/HEAD is not a symbolic ref\n",
+            )
+            .into_git();
+        assert_eq!(git.remote_default_branch().unwrap(), None);
     }
 }

@@ -6,7 +6,7 @@ parent: 6
 labels: [release]
 blockedBy: [21, 30, 34, 35]
 created: 2026-09-17T17:14:06Z
-updated: 2026-09-21T20:48:29Z
+updated: 2026-09-22T15:37:56Z
 ---
 
 ## Description
@@ -22,3 +22,7 @@ Blocked on the human, not on code: this repo has no git remote and no commits ye
 ### 2026-09-21T20:48:29Z — claude-code (agent)
 
 Workflow half done: `publish` in release.yml needs [gate, verify, verify-windows], downloads the `release-dist` artifact and runs softprops/action-gh-release@v2 with dist/*.gz + dist/checksums.txt, generate_release_notes: true, prerelease when the tag starts with v0. Nothing was tagged or pushed. What remains is human-only: create the GitHub repo CodeVachon/merge-pipeline, commit, `git tag v0.1.0 && git push origin main --tags`, then confirm `curl -fsSL https://raw.githubusercontent.com/CodeVachon/merge-pipeline/main/install.sh | sh` installs it and `merge-pipeline upgrade --check` reports up to date. Left in Todo deliberately.
+
+### 2026-09-22T15:37:56Z — claude-code (agent)
+
+2026-09-22: remote created by the user and the full tree pushed as commit 776995a on main (github.com/CodeVachon/merge-pipeline, public). Commits use the CodeVachon noreply identity, set repo-locally to match motte. Remaining human step is unchanged: once CI is green on main, `git tag v0.1.0 && git push origin v0.1.0` triggers release.yml.

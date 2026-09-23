@@ -86,7 +86,20 @@ reported as a warning and skipped.
 
 ```sh
 merge-pipeline config path        # prints the directory in effect and the rule that chose it
+merge-pipeline config doctor      # validates every workflow file; exit 1 if a run would fail
+merge-pipeline config init        # creates <cwd>/.merge-pipeline/ with the default workflows
 ```
+
+`config doctor` checks each file's JSON, name, `pipeline` length and regular expressions, flags
+duplicate names, unknown keys and mixed `order`, and with `-c <repo>` reports which local branch
+each pattern matches right now (none is a warning, several is a note that a run will ask).
+Warnings keep exit 0; errors exit 1. `--json` emits `{root, rule, workflows, problems, ok}`, the
+same shape the MCP `doctor_config` tool returns.
+
+`config init` writes `patch.json`, `minor.json`, `canary.json` and a disabled `default.json`,
+identical to the files in [`examples/config/`](examples/config/). Existing files are kept unless
+you pass `--force`; `--scope user` targets the user config directory instead. `install` runs it
+for you (see below).
 
 ## Usage
 
@@ -110,7 +123,8 @@ Every question can be answered up front:
 | `-a, --action <ACTION>`           | `run`, `dry-run` or `test`                                             |
 | `-p, --auto-push`                 | Push each target without asking (`--auto_push` also accepted)          |
 | `-f, --config <PATH>`             | Workflow directory                                                     |
-| `-y, --yes`                       | Answer every confirmation with its default (merge each step, push)     |
+| `-y, --yes`                       | Answer every confirmation with its default (merge each step, push, delete stale branches) |
+| `--no-sync`                       | Skip the branch sync below and fetch without pruning, as the original tool did |
 
 So a fully scripted run is:
 
@@ -134,6 +148,34 @@ resolved lists the conflicted files and leaves the merge in progress for you to 
 The `dry-run` name is kept from the original tool for compatibility. If you want to see what
 would happen without touching branches, use `test`.
 
+### Branch sync
+
+Release branches get merged and deleted on origin, and the next run used to trip over the dead
+local copy or fail to see the new one. So before mapping patterns to branches, every action
+(including `test`) syncs the local branches that the workflow cares about:
+
+1. `git fetch --prune origin`, so remote-tracking refs for deleted branches disappear.
+2. Every local branch that matches a pipeline pattern **and** whose upstream git reports as
+   `[gone]` is *stale*. For each one you are asked "Local branch X no longer exists on origin.
+   Delete it?" (default yes; `--yes` answers yes). Deleting uses `git branch -D`, and if the
+   stale branch is checked out you are moved to origin's default branch (or a local `main`)
+   first. A local branch that never had an upstream is never offered for deletion: it was never
+   pushed, so it is not the tool's to clean up.
+3. Every branch on origin that matches a pattern and has no local counterpart gets a local
+   tracking branch (`git branch --track X origin/X`), without asking, so a new `Patch-*` branch
+   is available to the very next step.
+
+```
+Syncing branches with origin...
+  ✗ deleted Patch-v0.1.1 (gone from origin)
+  ✓ created Patch-v0.1.2 tracking origin/Patch-v0.1.2
+
+Step 1: Merge Patch-v0.1.2 into staging-patch
+```
+
+`--no-sync` turns all of this off and runs a plain `git fetch`, which is what the original tool
+did. Branches matching no pattern in the selected workflow are never touched either way.
+
 ### package.json version conflicts
 
 When a merge stops on conflicts and every conflict is a `"version"` line in a `package.json`,
@@ -149,11 +191,14 @@ line), so Claude Code, Codex, Cursor and similar agents can drive the same opera
 Wire it up with:
 
 ```sh
-merge-pipeline install                 # writes .mcp.json in the current directory
-merge-pipeline install --scope user    # writes the mcpServers map of ~/.claude.json
+merge-pipeline install                 # writes .mcp.json and creates .merge-pipeline/ in the current directory
+merge-pipeline install --scope user    # writes the mcpServers map of ~/.claude.json and the user config directory
+merge-pipeline install --no-config     # only wire the server; do not create workflow files
 ```
 
-Both merge into an existing file and leave other servers alone. The entry written is:
+Both merge into an existing file and leave other servers alone, and both then run
+`config init` for the same scope so a fresh repository has workflows to run (files already
+present are kept). Running `install` twice changes nothing. The entry written is:
 
 ```json
 {
@@ -173,8 +218,10 @@ error, so the agent can adjust and retry.
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_workflows` | —                                                                                                                                      | `root`, every `workflows[]` entry (name, description, order, disabled, pipeline, source), the `enabled` names, and `errors[]` for files that failed to parse |
 | `inspect_repo`   | `fetch` (default false)                                                                                                                | `clean`, `current_branch`, `branches[]` with `has_upstream`                                                                              |
-| `plan_workflow`  | `workflow` (required), `selections` `{pattern: branch}`, `fetch` (default true)                                                        | `resolutions[]`, and either `complete: true` with `branches` and `steps[]`, or `complete: false` with `ambiguous[]` (pattern + candidates) and `no_match[]` |
-| `run_workflow`   | `workflow` and `confirm: true` (both required), `selections`, `auto_push` (default false), `version_strategy` `higher\|lower\|fail` (default fail), `abort_on_conflict` (default true), `answers` `{question key: value}` | per-step outcomes and the event log; on unresolved conflicts, the conflicted paths                                                        |
+| `plan_workflow`  | `workflow` (required), `selections` `{pattern: branch}`, `fetch` (default true), `sync` (see below)                                     | `resolutions[]`, `sync`, and either `complete: true` with `branches` and `steps[]`, or `complete: false` with `ambiguous[]` (pattern + candidates) and `no_match[]` |
+| `run_workflow`   | `workflow` and `confirm: true` (both required), `selections`, `auto_push` (default false), `version_strategy` `higher\|lower\|fail` (default fail), `abort_on_conflict` (default true), `sync` (see below), `answers` `{question key: value}` | per-step outcomes, `sync`, and the event log; on unresolved conflicts, the conflicted paths                                               |
+| `doctor_config`  | `check_branches` (default true)                                                                                                        | the `config doctor --json` report: `root`, `rule`, `workflows[]`, `problems[]` (`level`, `file`, `message`) and `ok`. Problems are a normal result, not `isError` |
+| `init_config`    | `scope` `project\|user` (default project), `force` (default false); `cwd` only                                                          | `dir` and `files[]` with `path` and `outcome` `created\|kept\|overwritten`, exactly as `config init` behaves                              |
 
 `run_workflow` never waits for a human. It refuses a dirty tree, and any question it cannot answer
 from its arguments is returned as an error naming the question key and its choices. The usual
@@ -182,9 +229,16 @@ sequence is `plan_workflow`, supply `selections` for anything `ambiguous`, then 
 With the default `abort_on_conflict`, a step that stops on conflicts is `git merge --abort`ed so
 the repository is left clean; pass `false` to leave the merge in progress for a person to finish.
 
+`sync` controls the branch sync described under Usage. There is nobody to ask, so the default is
+`{"stale": "keep", "fetch_new": true}`: stale local branches are reported under `sync.stale` and
+`sync.kept` but never deleted, and new remote branches get local tracking branches. Pass
+`{"stale": "delete"}` to remove them, `{"fetch_new": false}` to stop creating locals, or
+`false` to skip sync and fetch without pruning. The result's `sync` object has `stale`,
+`deleted`, `kept` and `created`; it is `null` when sync did not run.
+
 Question keys, for `answers`: `step:<source>>><target>` (confirm a merge), `push:<branch>`,
-`branch:<pattern>` (same as `selections`), `conflict:auto_resolve`, and
-`conflict:version:<lower>|<higher>`.
+`branch:<pattern>` (same as `selections`), `conflict:auto_resolve`,
+`conflict:version:<lower>|<higher>`, and `sync:delete:<branch>` (CLI only; MCP uses `sync`).
 
 ## Keeping it up to date
 

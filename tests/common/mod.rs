@@ -152,4 +152,19 @@ impl Fixture {
     pub fn local_head(&self, branch: &str) -> String {
         self.raw(&self.work, &["rev-parse", branch])
     }
+
+    /// Delete `branch` on origin only, as a merged-and-cleaned-up remote branch would be.
+    pub fn origin_delete_branch(&self, branch: &str) {
+        self.raw(&self.origin, &["branch", "-D", branch]);
+    }
+
+    /// Create `branch` on origin only (from `from`), as a teammate pushing a new branch would.
+    pub fn origin_add_branch(&self, branch: &str, from: &str) {
+        self.raw(&self.origin, &["branch", branch, from]);
+    }
+
+    /// Point `origin/HEAD` at `branch` in the work repo, as a clone would have it.
+    pub fn set_origin_head(&self, branch: &str) {
+        self.raw(&self.work, &["remote", "set-head", "origin", branch]);
+    }
 }

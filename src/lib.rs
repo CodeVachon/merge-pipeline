@@ -12,6 +12,7 @@ pub mod pipeline;
 pub mod prompt;
 pub mod runner;
 pub mod selfupdate;
+pub mod sync;
 pub mod text;
 pub mod ui;
 

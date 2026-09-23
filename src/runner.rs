@@ -12,6 +12,7 @@ use crate::conflicts::{ConflictError, try_resolve_package_json_versions};
 use crate::git::{Git, GitError};
 use crate::pipeline::{PipelineError, Step, make_steps, map_pipeline};
 use crate::prompt::{PromptError, Prompter, Question};
+use crate::sync::{SyncError, SyncEvent, SyncOptions, SyncReport, apply_sync, plan_sync};
 use crate::text::{action_to_string, array_to_string_list, plural};
 
 /// What the user asked for. Note `dry-run` still merges locally; it only stops automatic pushes.
@@ -68,6 +69,8 @@ pub struct Settings {
     pub action: Action,
     /// Push each target without asking. Forced off for `dry-run`.
     pub auto_push: bool,
+    /// Sync local branches with origin before mapping; `None` skips it (baseline behaviour).
+    pub sync: Option<SyncOptions>,
 }
 
 /// Why a push did not happen.
@@ -85,6 +88,8 @@ pub enum Event {
         patterns: Vec<String>,
     },
     Fetched,
+    /// Branch sync progress (see [`crate::sync`]).
+    Sync(SyncEvent),
     /// Patterns resolved to concrete branches.
     BranchesMapped {
         branches: Vec<String>,
@@ -180,6 +185,8 @@ pub enum RunError {
     Conflict(#[from] ConflictError),
     #[error(transparent)]
     Merge(#[from] MergeError),
+    #[error(transparent)]
+    Sync(#[from] SyncError),
     #[error("User chose not to proceed with merging \"{}\" into \"{}\"", step.source, step.target)]
     UserDeclined { step: Step },
 }
@@ -199,20 +206,54 @@ pub struct StepOutcome {
 pub struct RunReport {
     pub branches: Vec<String>,
     pub steps: Vec<StepOutcome>,
+    /// What branch sync did, when it ran.
+    pub sync: Option<SyncReport>,
 }
 
-/// Fetch, map the pipeline to branches, and produce the steps. This is all `test` does.
+/// What [`prepare`] produces.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Prepared {
+    /// Patterns resolved to concrete branches, in pipeline order.
+    pub branches: Vec<String>,
+    pub steps: Vec<Step>,
+    /// What branch sync did, when it ran.
+    pub sync: Option<SyncReport>,
+}
+
+/// Fetch (pruning), sync branches with origin, map the pipeline to branches, and produce the
+/// steps. This is all `test` does.
 pub fn prepare(
+    settings: &Settings,
     workflow: &WorkflowConfig,
     git: &mut Git,
     prompter: &mut dyn Prompter,
     sink: &mut dyn EventSink,
-) -> Result<(Vec<String>, Vec<Step>), RunError> {
+) -> Result<Prepared, RunError> {
     sink.event(&Event::Pipeline {
         patterns: workflow.pipeline.clone(),
     });
-    git.fetch()?;
-    sink.event(&Event::Fetched);
+
+    let sync = match settings.sync {
+        None => {
+            git.fetch()?;
+            sink.event(&Event::Fetched);
+            sink.event(&Event::Sync(SyncEvent::Skipped {
+                reason: "disabled".to_string(),
+            }));
+            None
+        }
+        Some(options) => {
+            git.fetch_prune()?;
+            sink.event(&Event::Fetched);
+            Some(sync_branches(
+                &workflow.pipeline,
+                options,
+                git,
+                prompter,
+                sink,
+            )?)
+        }
+    };
 
     let branches = git.branch_list()?;
     let mapped = map_pipeline(&workflow.pipeline, &branches, prompter)?;
@@ -224,7 +265,29 @@ pub fn prepare(
     sink.event(&Event::StepsPlanned {
         steps: steps.clone(),
     });
-    Ok((mapped, steps))
+    Ok(Prepared {
+        branches: mapped,
+        steps,
+        sync,
+    })
+}
+
+/// Plan and apply branch sync for `patterns`, forwarding its events to `sink`. Assumes
+/// `git fetch --prune origin` has already run.
+pub fn sync_branches(
+    patterns: &[String],
+    options: SyncOptions,
+    git: &mut Git,
+    prompter: &mut dyn Prompter,
+    sink: &mut dyn EventSink,
+) -> Result<SyncReport, RunError> {
+    let tracking = git.local_branch_tracking()?;
+    let remote = git.remote_branches()?;
+    let plan = plan_sync(patterns, &tracking, &remote)?;
+    let report = apply_sync(git, &plan, options, prompter, |event| {
+        sink.event(&Event::Sync(event))
+    })?;
+    Ok(report)
 }
 
 fn confirm_step(step: &Step, prompter: &mut dyn Prompter) -> Result<(), RunError> {
@@ -391,10 +454,15 @@ pub fn run_workflow(
         ..settings.clone()
     };
 
-    let (branches, steps) = prepare(workflow, git, prompter, sink)?;
+    let Prepared {
+        branches,
+        steps,
+        sync,
+    } = prepare(&settings, workflow, git, prompter, sink)?;
     let mut report = RunReport {
         branches,
         steps: Vec::new(),
+        sync,
     };
 
     if settings.action == Action::Test {

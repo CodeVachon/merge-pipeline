@@ -9,7 +9,7 @@ use serde_json::{Map, Value, json};
 use super::plan_workflow::selections_schema;
 use super::{
     CommonArgs, Tool, ToolError, bool_or, object_schema, optional_string, required_string,
-    string_map,
+    string_map, sync_options, sync_report_json, sync_schema,
 };
 use crate::conflicts::AUTO_RESOLVE_KEY;
 use crate::git::Git;
@@ -18,6 +18,7 @@ use crate::prompt::{Answer, PromptError, ScriptedPrompter};
 use crate::runner::{
     Action, CollectingSink, Event, PushSkipReason, RunError, RunReport, Settings, run_workflow,
 };
+use crate::sync::SyncEvent;
 
 pub struct RunWorkflow;
 
@@ -107,6 +108,7 @@ pub fn event_json(event: &Event) -> Value {
     match event {
         Event::Pipeline { patterns } => json!({ "type": "pipeline", "patterns": patterns }),
         Event::Fetched => json!({ "type": "fetched" }),
+        Event::Sync(sync) => sync_event_json(sync),
         Event::BranchesMapped { branches } => {
             json!({ "type": "branches_mapped", "branches": branches })
         }
@@ -142,6 +144,21 @@ pub fn event_json(event: &Event) -> Value {
     }
 }
 
+/// Sync events → JSON.
+pub fn sync_event_json(event: &SyncEvent) -> Value {
+    match event {
+        SyncEvent::Started => json!({ "type": "sync_started" }),
+        SyncEvent::StaleBranch { branch, deleted } => json!({
+            "type": "stale_branch", "branch": branch, "deleted": deleted
+        }),
+        SyncEvent::BranchCreated { branch, upstream } => json!({
+            "type": "branch_created", "branch": branch, "upstream": upstream
+        }),
+        SyncEvent::Warning { message } => json!({ "type": "sync_warning", "message": message }),
+        SyncEvent::Skipped { reason } => json!({ "type": "sync_skipped", "reason": reason }),
+    }
+}
+
 fn report_json(report: &RunReport) -> Value {
     json!({
         "branches": report.branches,
@@ -152,6 +169,7 @@ fn report_json(report: &RunReport) -> Value {
             "pushed": outcome.pushed,
             "conflicts_resolved": outcome.conflicts_resolved,
         })).collect::<Vec<_>>(),
+        "sync": sync_report_json(report.sync.as_ref()),
     })
 }
 
@@ -219,7 +237,9 @@ impl Tool for RunWorkflow {
          plan_workflow first) and decide package.json version conflicts with `version_strategy`. \
          Any question it still cannot answer is returned as an error naming the question. A merge \
          that stops on conflicts is aborted (unless abort_on_conflict=false) and the conflicted \
-         paths are reported."
+         paths are reported. Before mapping, branches are synced with origin per `sync` (default: \
+         fetch --prune, report stale local branches without deleting, create locals for new \
+         remote branches)."
     }
 
     fn input_schema(&self) -> Value {
@@ -250,6 +270,7 @@ impl Tool for RunWorkflow {
             "abort_on_conflict".into(),
             json!({ "type": "boolean", "default": true, "description": "Run `git merge --abort` when a step stops on unresolved conflicts, so the repository is left clean. false leaves the merge in progress for a human to finish." }),
         );
+        extra.insert("sync".into(), sync_schema());
         extra.insert(
             "answers".into(),
             json!({
@@ -299,6 +320,7 @@ impl Tool for RunWorkflow {
             cwd: common.cwd.clone(),
             action: Action::Run,
             auto_push,
+            sync: sync_options(arguments)?,
         };
 
         match run_workflow(&settings, workflow, &mut git, &mut prompter, &mut sink) {

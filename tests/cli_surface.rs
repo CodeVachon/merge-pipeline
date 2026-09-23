@@ -26,6 +26,8 @@ fn help_lists_every_flag_and_subcommand() {
         "-p, --auto-push",
         "-f, --config <PATH>",
         "-a, --action <ACTION>",
+        "-y, --yes",
+        "--no-sync",
         "- run:",
         "- dry-run:",
         "- test:",

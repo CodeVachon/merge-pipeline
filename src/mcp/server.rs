@@ -280,7 +280,9 @@ mod tests {
                 "list_workflows",
                 "inspect_repo",
                 "plan_workflow",
-                "run_workflow"
+                "run_workflow",
+                "doctor_config",
+                "init_config"
             ]
         );
     }

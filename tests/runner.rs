@@ -10,6 +10,7 @@ use merge_pipeline::prompt::{Answer, RecordingPrompter, ScriptedPrompter};
 use merge_pipeline::runner::{
     Action, CollectingSink, Event, PushSkipReason, RunError, Settings, run_workflow,
 };
+use merge_pipeline::sync::{StalePolicy, SyncEvent, SyncOptions};
 
 fn workflow(patterns: &[&str]) -> WorkflowConfig {
     WorkflowConfig {
@@ -27,6 +28,7 @@ fn settings(fixture: &Fixture, action: Action, auto_push: bool) -> Settings {
         cwd: fixture.work.clone(),
         action,
         auto_push,
+        sync: Some(SyncOptions::default()),
     }
 }
 
@@ -333,4 +335,283 @@ fn unresolvable_conflict_is_a_merge_error_listing_files_and_leaves_the_merge_in_
         step: step("Patch-v0.1.1", "staging-patch"),
         paths: vec!["README.md".into()]
     }));
+}
+
+/// Choice values offered by a recorded select prompt.
+fn choices_of(recorded: &merge_pipeline::prompt::Recorded) -> Vec<String> {
+    match &recorded.kind {
+        merge_pipeline::prompt::PromptKind::Select { choices, .. } => {
+            choices.iter().map(|c| c.value.clone()).collect()
+        }
+        other => panic!("expected a select prompt, got {other:?}"),
+    }
+}
+
+fn has(branches: &[String], name: &str) -> bool {
+    branches.iter().any(|b| b == name)
+}
+
+/// origin has moved on: Patch-v0.1.1 was merged and deleted, Patch-v0.1.3 is new.
+fn drift_origin(fixture: &Fixture) {
+    fixture.origin_delete_branch("Patch-v0.1.1");
+    fixture.origin_add_branch("Patch-v0.1.3", "main");
+}
+
+#[test]
+fn sync_deletes_the_stale_patch_branch_and_tracks_the_new_one_before_mapping() {
+    let fixture = Fixture::new();
+    drift_origin(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = RecordingPrompter::new(
+        ScriptedPrompter::new()
+            .answer("sync:delete:Patch-v0.1.1", true)
+            .answer("branch:^Patch-*", "Patch-v0.1.3"),
+    );
+    let mut sink = CollectingSink::default();
+
+    let report = run_workflow(
+        &settings(&fixture, Action::Test, false),
+        &workflow(&["^Patch-*", "^staging-patch$"]),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    let sync = report.sync.expect("sync ran");
+    assert_eq!(sync.stale, vec!["Patch-v0.1.1"]);
+    assert_eq!(sync.deleted, vec!["Patch-v0.1.1"]);
+    assert!(sync.kept.is_empty());
+    assert_eq!(sync.created, vec!["Patch-v0.1.3"]);
+
+    let branches = git.branch_list().unwrap();
+    assert!(
+        !has(&branches, "Patch-v0.1.1"),
+        "stale branch is gone locally"
+    );
+    assert!(has(&branches, "Patch-v0.1.3"), "new branch exists locally");
+    assert!(
+        has(&branches, "Patch-v0.1.2"),
+        "never-pushed local branch is untouched"
+    );
+    let tracking = git.local_branch_tracking().unwrap();
+    let created = tracking.iter().find(|t| t.name == "Patch-v0.1.3").unwrap();
+    assert_eq!(created.upstream.as_deref(), Some("origin/Patch-v0.1.3"));
+
+    // The delete was asked before mapping, and mapping only offered the surviving branches.
+    assert_eq!(
+        prompter.keys(),
+        vec!["sync:delete:Patch-v0.1.1", "branch:^Patch-*"]
+    );
+    assert_eq!(
+        prompter.recorded[0].question.message,
+        "Local branch Patch-v0.1.1 no longer exists on origin. Delete it?"
+    );
+    assert_eq!(
+        choices_of(&prompter.recorded[1]),
+        vec!["Patch-v0.1.2", "Patch-v0.1.3"]
+    );
+    assert_eq!(report.branches, vec!["Patch-v0.1.3", "staging-patch"]);
+
+    assert!(sink.0.contains(&Event::Sync(SyncEvent::StaleBranch {
+        branch: "Patch-v0.1.1".into(),
+        deleted: true
+    })));
+    assert!(sink.0.contains(&Event::Sync(SyncEvent::BranchCreated {
+        branch: "Patch-v0.1.3".into(),
+        upstream: "origin/Patch-v0.1.3".into()
+    })));
+}
+
+#[test]
+fn declining_the_delete_keeps_the_stale_branch_and_reports_it() {
+    let fixture = Fixture::new();
+    drift_origin(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = ScriptedPrompter::new()
+        .answer("sync:delete:Patch-v0.1.1", false)
+        .answer("branch:^Patch-*", "Patch-v0.1.2");
+    let mut sink = CollectingSink::default();
+
+    let report = run_workflow(
+        &settings(&fixture, Action::Test, false),
+        &workflow(&["^Patch-*", "^staging-patch$"]),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    let sync = report.sync.unwrap();
+    assert_eq!(sync.stale, vec!["Patch-v0.1.1"]);
+    assert!(sync.deleted.is_empty());
+    assert_eq!(sync.kept, vec!["Patch-v0.1.1"]);
+    assert_eq!(sync.created, vec!["Patch-v0.1.3"]);
+    assert!(has(&git.branch_list().unwrap(), "Patch-v0.1.1"));
+    assert!(sink.0.contains(&Event::Sync(SyncEvent::StaleBranch {
+        branch: "Patch-v0.1.1".into(),
+        deleted: false
+    })));
+}
+
+#[test]
+fn deleting_the_checked_out_stale_branch_moves_to_the_default_branch_first() {
+    let fixture = Fixture::new();
+    fixture.raw(&fixture.work, &["checkout", "Patch-v0.1.1"]);
+    fixture.set_origin_head("main");
+    fixture.origin_delete_branch("Patch-v0.1.1");
+
+    let mut git = fixture.git();
+    let mut prompter = ScriptedPrompter::new().answer_prefix("sync:delete:", true);
+    let mut sink = CollectingSink::default();
+
+    let report = run_workflow(
+        &settings(&fixture, Action::Test, false),
+        &workflow(&["^Patch-v0.1.1$|^Patch-v0.1.2$", "^staging-patch$"]),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    assert_eq!(report.sync.unwrap().deleted, vec!["Patch-v0.1.1"]);
+    assert!(!has(&git.branch_list().unwrap(), "Patch-v0.1.1"));
+    // Mapping then resolved to the only remaining candidate, and HEAD was moved off the deleted
+    // branch before the delete.
+    assert_eq!(report.branches, vec!["Patch-v0.1.2", "staging-patch"]);
+    assert_eq!(fixture.current_branch(), "main");
+}
+
+#[test]
+fn checked_out_stale_branch_falls_back_to_a_local_main_when_origin_head_is_unset() {
+    let fixture = Fixture::new();
+    fixture.raw(&fixture.work, &["checkout", "Patch-v0.1.1"]);
+    fixture.origin_delete_branch("Patch-v0.1.1");
+
+    let mut git = fixture.git();
+    let mut prompter = ScriptedPrompter::new().answer_prefix("sync:delete:", true);
+    let mut sink = CollectingSink::default();
+
+    run_workflow(
+        &settings(&fixture, Action::Test, false),
+        &workflow(&["^Patch-v0.1.1$|^Patch-v0.1.2$", "^staging-patch$"]),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    assert!(!has(&git.branch_list().unwrap(), "Patch-v0.1.1"));
+    assert_eq!(fixture.current_branch(), "main");
+}
+
+#[test]
+fn sync_disabled_restores_the_baseline_plain_fetch_and_changes_nothing() {
+    let fixture = Fixture::new();
+    drift_origin(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = RecordingPrompter::new(ScriptedPrompter::new());
+    let mut sink = CollectingSink::default();
+    let settings = Settings {
+        sync: None,
+        ..settings(&fixture, Action::Test, false)
+    };
+
+    let report = run_workflow(
+        &settings,
+        &workflow(&["^Patch-v0.1.1$", "^staging-patch$"]),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    assert!(report.sync.is_none());
+    assert!(prompter.recorded.is_empty());
+    let branches = git.branch_list().unwrap();
+    assert!(has(&branches, "Patch-v0.1.1"), "stale branch still present");
+    assert!(
+        !has(&branches, "Patch-v0.1.3"),
+        "new branch not fetched into a local branch"
+    );
+    assert_eq!(report.branches, vec!["Patch-v0.1.1", "staging-patch"]);
+    assert!(sink.0.contains(&Event::Sync(SyncEvent::Skipped {
+        reason: "disabled".into()
+    })));
+    assert!(!sink.0.contains(&Event::Sync(SyncEvent::Started)));
+}
+
+#[test]
+fn keep_policy_never_prompts_and_never_deletes_but_still_creates_new_branches() {
+    let fixture = Fixture::new();
+    drift_origin(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter =
+        RecordingPrompter::new(ScriptedPrompter::new().answer("branch:^Patch-*", "Patch-v0.1.3"));
+    let mut sink = CollectingSink::default();
+    let settings = Settings {
+        sync: Some(SyncOptions {
+            stale: StalePolicy::Keep,
+            fetch_new: true,
+        }),
+        ..settings(&fixture, Action::Test, false)
+    };
+
+    let report = run_workflow(
+        &settings,
+        &workflow(&["^Patch-*", "^staging-patch$"]),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    let sync = report.sync.unwrap();
+    assert_eq!(sync.stale, vec!["Patch-v0.1.1"]);
+    assert_eq!(sync.kept, vec!["Patch-v0.1.1"]);
+    assert!(sync.deleted.is_empty());
+    assert_eq!(sync.created, vec!["Patch-v0.1.3"]);
+    assert_eq!(prompter.keys(), vec!["branch:^Patch-*"], "no delete prompt");
+    assert_eq!(
+        choices_of(&prompter.recorded[0]),
+        vec!["Patch-v0.1.1", "Patch-v0.1.2", "Patch-v0.1.3"]
+    );
+}
+
+#[test]
+fn delete_policy_removes_stale_branches_without_prompting() {
+    let fixture = Fixture::new();
+    drift_origin(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = RecordingPrompter::new(ScriptedPrompter::new());
+    let mut sink = CollectingSink::default();
+    let settings = Settings {
+        sync: Some(SyncOptions {
+            stale: StalePolicy::Delete,
+            fetch_new: false,
+        }),
+        ..settings(&fixture, Action::Test, false)
+    };
+
+    let report = run_workflow(
+        &settings,
+        &workflow(&["^Patch-v0.1.1$|^Patch-v0.1.2$", "^staging-patch$"]),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    let sync = report.sync.unwrap();
+    assert_eq!(sync.deleted, vec!["Patch-v0.1.1"]);
+    assert!(sync.created.is_empty(), "fetch_new=false creates nothing");
+    assert!(prompter.recorded.is_empty());
+    let branches = git.branch_list().unwrap();
+    assert!(!has(&branches, "Patch-v0.1.1"));
+    assert!(!has(&branches, "Patch-v0.1.3"));
 }

@@ -177,7 +177,9 @@ fn handshake_tools_list_and_list_workflows() {
             "list_workflows",
             "inspect_repo",
             "plan_workflow",
-            "run_workflow"
+            "run_workflow",
+            "doctor_config",
+            "init_config"
         ]
     );
     let run_schema = &listed["result"]["tools"][3]["inputSchema"];
@@ -607,4 +609,300 @@ fn install_wires_project_and_user_configuration_files() {
         written["mcpServers"]["merge-pipeline"]["args"],
         json!(["mcp"])
     );
+}
+
+#[test]
+fn doctor_config_reports_ok_for_good_config_and_problems_for_bad_without_is_error() {
+    let fixture = Fixture::new();
+    let good = fixture.temp.path().join("good");
+    std::fs::create_dir_all(&good).unwrap();
+    std::fs::write(
+        good.join("patch.json"),
+        r#"{"$schema":"x","name":"Patch","order":1,"pipeline":["^Patch-v0.1.1$","^staging-patch$"]}"#,
+    )
+    .unwrap();
+    let mut client = McpClient::spawn(&fixture);
+    client.handshake();
+
+    let (payload, is_error) = client.tool("doctor_config", common_args(&fixture, &good));
+    assert!(!is_error);
+    assert_eq!(payload["ok"], json!(true));
+    assert_eq!(payload["rule"], json!("--config flag"));
+    assert_eq!(payload["root"], json!(good.to_string_lossy()));
+    assert_eq!(payload["problems"], json!([]));
+    let workflow = &payload["workflows"][0];
+    assert_eq!(workflow["name"], json!("Patch"));
+    assert_eq!(workflow["enabled"], json!(true));
+    assert_eq!(
+        workflow["branches"][0]["matches"],
+        json!(["Patch-v0.1.1"]),
+        "branches are checked by default against the fixture repo"
+    );
+
+    let (payload, is_error) = client.tool(
+        "doctor_config",
+        with(
+            common_args(&fixture, &good),
+            json!({"check_branches": false}),
+        ),
+    );
+    assert!(!is_error);
+    assert!(payload["workflows"][0].get("branches").is_none());
+
+    let bad = fixture.temp.path().join("bad");
+    std::fs::create_dir_all(&bad).unwrap();
+    std::fs::write(
+        bad.join("bad.json"),
+        r#"{"$schema":"x","name":"Bad","pipeline":["(unclosed","main"]}"#,
+    )
+    .unwrap();
+    let (payload, is_error) = client.tool("doctor_config", common_args(&fixture, &bad));
+    assert!(!is_error, "problems are the answer, not an error");
+    assert_eq!(payload["ok"], json!(false));
+    let problems = payload["problems"].as_array().unwrap();
+    assert!(!problems.is_empty());
+    assert_eq!(problems[0]["level"], json!("error"));
+    assert_eq!(problems[0]["file"], json!("bad.json"));
+    assert!(
+        problems[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("not a valid regular expression")
+    );
+
+    let (payload, is_error) = client.tool(
+        "doctor_config",
+        json!({"cwd": fixture.work.to_string_lossy(), "config": bad.join("absent").to_string_lossy()}),
+    );
+    assert!(
+        is_error,
+        "a config dir that does not exist cannot be diagnosed"
+    );
+    assert!(
+        payload["error"]
+            .as_str()
+            .unwrap()
+            .contains("not a directory")
+    );
+}
+
+#[test]
+fn init_config_writes_defaults_then_keeps_them_and_doctor_sees_them() {
+    let fixture = Fixture::new();
+    let fresh = fixture.temp.path().join("fresh");
+    std::fs::create_dir_all(&fresh).unwrap();
+    let mut client = McpClient::spawn(&fixture);
+    client.handshake();
+
+    let (payload, is_error) = client.tool("init_config", json!({"cwd": fresh.to_string_lossy()}));
+    assert!(!is_error);
+    assert_eq!(
+        payload["dir"],
+        json!(fresh.join(".merge-pipeline").to_string_lossy())
+    );
+    let files = payload["files"].as_array().unwrap();
+    assert_eq!(files.len(), 4);
+    assert!(files.iter().all(|f| f["outcome"] == json!("created")));
+    assert!(files[0]["path"].as_str().unwrap().ends_with("patch.json"));
+
+    let (payload, _) = client.tool("doctor_config", json!({"cwd": fresh.to_string_lossy()}));
+    assert_eq!(payload["ok"], json!(true));
+    assert_eq!(payload["rule"], json!("<cwd>/.merge-pipeline"));
+    let enabled = payload["workflows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|w| w["enabled"] == json!(true))
+        .count();
+    assert_eq!(enabled, 3);
+
+    let (payload, is_error) = client.tool("init_config", json!({"cwd": fresh.to_string_lossy()}));
+    assert!(!is_error);
+    assert!(
+        payload["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["outcome"] == json!("kept"))
+    );
+
+    let (payload, is_error) = client.tool(
+        "init_config",
+        json!({"cwd": fresh.to_string_lossy(), "force": true}),
+    );
+    assert!(!is_error);
+    assert!(
+        payload["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["outcome"] == json!("overwritten"))
+    );
+
+    let (payload, is_error) = client.tool(
+        "init_config",
+        json!({"cwd": fresh.to_string_lossy(), "scope": "global"}),
+    );
+    assert!(is_error);
+    assert!(payload["error"].as_str().unwrap().contains("scope"));
+}
+
+/// origin has moved on: Patch-v0.1.1 was merged and deleted, Patch-v0.1.3 is new.
+fn drift_origin(fixture: &Fixture) {
+    fixture.origin_delete_branch("Patch-v0.1.1");
+    fixture.origin_add_branch("Patch-v0.1.3", "main");
+}
+
+fn local_branches(fixture: &Fixture) -> Vec<String> {
+    fixture
+        .raw(&fixture.work, &["branch", "--format=%(refname:short)"])
+        .lines()
+        .map(str::to_string)
+        .collect()
+}
+
+#[test]
+fn plan_workflow_default_sync_reports_stale_branches_without_deleting_and_creates_new_ones() {
+    let (fixture, config) = setup();
+    drift_origin(&fixture);
+    let mut client = McpClient::spawn(&fixture);
+    client.handshake();
+
+    let (payload, is_error) = client.tool(
+        "plan_workflow",
+        with(
+            common_args(&fixture, &config),
+            json!({"workflow": "Any Patch to Staging"}),
+        ),
+    );
+    assert!(!is_error, "{payload}");
+    assert_eq!(
+        payload["sync"],
+        json!({
+            "stale": ["Patch-v0.1.1"],
+            "deleted": [],
+            "kept": ["Patch-v0.1.1"],
+            "created": ["Patch-v0.1.3"]
+        })
+    );
+    // Stale branch still there (never deleted by default), new one now local; both are candidates.
+    let branches = local_branches(&fixture);
+    assert!(branches.iter().any(|b| b == "Patch-v0.1.1"));
+    assert!(branches.iter().any(|b| b == "Patch-v0.1.3"));
+    assert_eq!(
+        payload["ambiguous"][0]["candidates"],
+        json!(["Patch-v0.1.1", "Patch-v0.1.2", "Patch-v0.1.3"])
+    );
+}
+
+#[test]
+fn plan_workflow_sync_delete_removes_stale_branches_and_sync_false_skips_everything() {
+    let (fixture, config) = setup();
+    drift_origin(&fixture);
+    let mut client = McpClient::spawn(&fixture);
+    client.handshake();
+
+    let (payload, is_error) = client.tool(
+        "plan_workflow",
+        with(
+            common_args(&fixture, &config),
+            json!({"workflow": "Any Patch to Staging", "sync": false}),
+        ),
+    );
+    assert!(!is_error, "{payload}");
+    assert_eq!(payload["sync"], Value::Null);
+    let branches = local_branches(&fixture);
+    assert!(branches.iter().any(|b| b == "Patch-v0.1.1"), "kept");
+    assert!(!branches.iter().any(|b| b == "Patch-v0.1.3"), "not fetched");
+
+    let (payload, is_error) = client.tool(
+        "plan_workflow",
+        with(
+            common_args(&fixture, &config),
+            json!({"workflow": "Any Patch to Staging", "sync": {"stale": "delete", "fetch_new": false}}),
+        ),
+    );
+    assert!(!is_error, "{payload}");
+    assert_eq!(payload["sync"]["deleted"], json!(["Patch-v0.1.1"]));
+    assert_eq!(payload["sync"]["created"], json!([]));
+    let branches = local_branches(&fixture);
+    assert!(!branches.iter().any(|b| b == "Patch-v0.1.1"), "deleted");
+    assert!(
+        !branches.iter().any(|b| b == "Patch-v0.1.3"),
+        "fetch_new=false"
+    );
+    assert_eq!(
+        payload["complete"],
+        json!(true),
+        "only Patch-v0.1.2 remains, so the pattern resolves"
+    );
+    assert_eq!(
+        payload["steps"],
+        json!([{"source": "Patch-v0.1.2", "target": "staging-patch"}])
+    );
+
+    let (payload, is_error) = client.tool(
+        "plan_workflow",
+        with(
+            common_args(&fixture, &config),
+            json!({"workflow": "Any Patch to Staging", "sync": {"stale": "ask"}}),
+        ),
+    );
+    assert!(is_error);
+    assert!(payload["error"].as_str().unwrap().contains("sync.stale"));
+}
+
+#[test]
+fn run_workflow_reports_sync_and_honours_the_delete_policy() {
+    let (fixture, config) = setup();
+    drift_origin(&fixture);
+    fixture.raw(&fixture.work, &["branch", "-D", "Patch-v0.1.2"]);
+    let mut client = McpClient::spawn(&fixture);
+    client.handshake();
+
+    // Default sync: the stale branch is kept and the new one created; with a stale and a new
+    // candidate the pattern is ambiguous, so a selection is needed.
+    let (payload, is_error) = client.tool(
+        "run_workflow",
+        with(
+            common_args(&fixture, &config),
+            json!({
+                "workflow": "Any Patch to Staging",
+                "confirm": true,
+                "selections": {"^Patch-*": "Patch-v0.1.3"}
+            }),
+        ),
+    );
+    assert!(!is_error, "{payload}");
+    assert_eq!(payload["sync"]["kept"], json!(["Patch-v0.1.1"]));
+    assert_eq!(payload["sync"]["created"], json!(["Patch-v0.1.3"]));
+    assert_eq!(
+        payload["branches"],
+        json!(["Patch-v0.1.3", "staging-patch"])
+    );
+    let types: Vec<&str> = payload["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|event| event["type"].as_str().unwrap())
+        .collect();
+    assert!(types.contains(&"sync_started"));
+    assert!(types.contains(&"stale_branch"));
+    assert!(types.contains(&"branch_created"));
+
+    // Now delete the stale branch through the tool.
+    let (payload, is_error) = client.tool(
+        "run_workflow",
+        with(
+            common_args(&fixture, &config),
+            json!({
+                "workflow": "Any Patch to Staging",
+                "confirm": true,
+                "sync": {"stale": "delete"}
+            }),
+        ),
+    );
+    assert!(!is_error, "{payload}");
+    assert_eq!(payload["sync"]["deleted"], json!(["Patch-v0.1.1"]));
+    assert!(!local_branches(&fixture).iter().any(|b| b == "Patch-v0.1.1"));
 }

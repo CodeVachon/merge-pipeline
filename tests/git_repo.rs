@@ -85,3 +85,108 @@ fn checkout_new_refuses_an_existing_branch() {
     git.checkout_new("fresh").unwrap();
     assert_eq!(git.current_branch().unwrap(), "fresh");
 }
+
+#[test]
+fn fetch_prune_marks_a_branch_deleted_on_origin_as_gone() {
+    let fixture = Fixture::new();
+    fixture.origin_delete_branch("Patch-v0.1.1");
+    let mut git = fixture.git();
+    git.fetch_prune().unwrap();
+
+    let tracking = git.local_branch_tracking().unwrap();
+    let find = |name: &str| tracking.iter().find(|t| t.name == name).unwrap().clone();
+
+    let stale = find("Patch-v0.1.1");
+    assert_eq!(stale.upstream.as_deref(), Some("origin/Patch-v0.1.1"));
+    assert!(stale.gone, "deleted on origin must show as gone");
+
+    let live = find("staging-patch");
+    assert_eq!(live.upstream.as_deref(), Some("origin/staging-patch"));
+    assert!(!live.gone);
+
+    let never_pushed = find("Patch-v0.1.2");
+    assert_eq!(never_pushed.upstream, None);
+    assert!(!never_pushed.gone, "no upstream is not the same as gone");
+}
+
+#[test]
+fn a_new_origin_branch_is_listed_and_can_be_tracked_locally() {
+    let fixture = Fixture::new();
+    fixture.origin_add_branch("Patch-v0.1.3", "main");
+    let mut git = fixture.git();
+
+    assert!(
+        !git.remote_branches()
+            .unwrap()
+            .iter()
+            .any(|r| r.name == "Patch-v0.1.3"),
+        "not visible before fetching"
+    );
+    git.fetch_prune().unwrap();
+    let remote = git.remote_branches().unwrap();
+    let new = remote.iter().find(|r| r.name == "Patch-v0.1.3").unwrap();
+    assert_eq!(new.remote_ref, "origin/Patch-v0.1.3");
+    assert!(
+        !git.branch_list()
+            .unwrap()
+            .iter()
+            .any(|b| b == "Patch-v0.1.3")
+    );
+
+    git.create_tracking_branch(&new.name, &new.remote_ref)
+        .unwrap();
+    assert!(
+        git.branch_list()
+            .unwrap()
+            .iter()
+            .any(|b| b == "Patch-v0.1.3")
+    );
+    let tracking = git.local_branch_tracking().unwrap();
+    let created = tracking.iter().find(|t| t.name == "Patch-v0.1.3").unwrap();
+    assert_eq!(created.upstream.as_deref(), Some("origin/Patch-v0.1.3"));
+    assert!(!created.gone);
+    assert_eq!(
+        git.current_branch().unwrap(),
+        "main",
+        "no checkout happened"
+    );
+}
+
+#[test]
+fn delete_branch_needs_force_for_unmerged_work() {
+    let fixture = Fixture::new();
+    fixture.commit_on("Patch-v0.1.2", "extra.txt", "x\n", "unmerged work");
+    fixture.raw(&fixture.work, &["checkout", "main"]);
+    let mut git = fixture.git();
+
+    assert!(git.delete_branch("Patch-v0.1.2", false).is_err());
+    assert!(
+        git.branch_list()
+            .unwrap()
+            .iter()
+            .any(|b| b == "Patch-v0.1.2")
+    );
+
+    git.delete_branch("Patch-v0.1.2", true).unwrap();
+    assert!(
+        !git.branch_list()
+            .unwrap()
+            .iter()
+            .any(|b| b == "Patch-v0.1.2")
+    );
+
+    git.delete_branch("banana", false).unwrap();
+    assert!(!git.branch_list().unwrap().iter().any(|b| b == "banana"));
+}
+
+#[test]
+fn remote_default_branch_follows_origin_head() {
+    let fixture = Fixture::new();
+    let mut git = fixture.git();
+    assert_eq!(git.remote_default_branch().unwrap(), None);
+    fixture.set_origin_head("main");
+    assert_eq!(
+        git.remote_default_branch().unwrap(),
+        Some("main".to_string())
+    );
+}

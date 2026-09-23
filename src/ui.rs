@@ -9,6 +9,7 @@ use std::io::{IsTerminal, Write};
 use owo_colors::{OwoColorize, Style};
 
 use crate::runner::{Event, EventSink, MergeError, RunError};
+use crate::sync::SyncEvent;
 
 /// Orange `#ff6700`, cyan `#00d5ff`, bright red — or nothing, when colors are off.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,6 +143,44 @@ pub fn format_steps(palette: Palette, steps: &[crate::pipeline::Step]) -> String
     out
 }
 
+/// One line per branch-sync event; `None` for events that need no line.
+pub fn format_sync_event(palette: Palette, event: &SyncEvent) -> Option<String> {
+    Some(match event {
+        SyncEvent::Started => format!("{}\n", palette.dim("Syncing branches with origin...")),
+        SyncEvent::StaleBranch {
+            branch,
+            deleted: true,
+        } => format!(
+            "  {} deleted {} {}\n",
+            palette.red("✗"),
+            palette.orange(branch),
+            palette.dim("(gone from origin)")
+        ),
+        SyncEvent::StaleBranch {
+            branch,
+            deleted: false,
+        } => format!(
+            "  {} kept {} {}\n",
+            palette.dim("·"),
+            palette.orange(branch),
+            palette.dim("(gone from origin)")
+        ),
+        SyncEvent::BranchCreated { branch, upstream } => format!(
+            "  {} created {} tracking {}\n",
+            palette.cyan("✓"),
+            palette.orange(branch),
+            palette.cyan(upstream)
+        ),
+        SyncEvent::Warning { message } => format!("  {} {message}\n", palette.red("!")),
+        SyncEvent::Skipped { reason } => {
+            format!(
+                "{}\n",
+                palette.dim(&format!("Branch sync skipped ({reason})"))
+            )
+        }
+    })
+}
+
 /// `$ git ...` — the verbose command echo from `utl/log.ts`.
 pub fn format_command(palette: Palette, rendered: &str) -> String {
     format!("{} {rendered}", palette.cyan("$"))
@@ -218,6 +257,7 @@ impl StdoutRenderer {
                 Some(format!("{}\n", format_pipeline(self.palette, patterns)))
             }
             Event::StepsPlanned { steps } => Some(format_steps(self.palette, steps)),
+            Event::Sync(sync) => format_sync_event(self.palette, sync),
             Event::ConflictsResolved {
                 rewritten,
                 committed,
@@ -297,6 +337,58 @@ mod tests {
         assert_eq!(
             format_command(palette, "git merge \"a b\" --no-verify"),
             "$ git merge \"a b\" --no-verify"
+        );
+    }
+
+    #[test]
+    fn sync_events_render_one_line_each() {
+        let palette = Palette::plain();
+        assert_eq!(
+            format_sync_event(palette, &SyncEvent::Started).unwrap(),
+            "Syncing branches with origin...\n"
+        );
+        assert_eq!(
+            format_sync_event(
+                palette,
+                &SyncEvent::StaleBranch {
+                    branch: "Patch-v0.1.1".into(),
+                    deleted: true
+                }
+            )
+            .unwrap(),
+            "  ✗ deleted Patch-v0.1.1 (gone from origin)\n"
+        );
+        assert_eq!(
+            format_sync_event(
+                palette,
+                &SyncEvent::StaleBranch {
+                    branch: "Patch-v0.1.1".into(),
+                    deleted: false
+                }
+            )
+            .unwrap(),
+            "  · kept Patch-v0.1.1 (gone from origin)\n"
+        );
+        assert_eq!(
+            format_sync_event(
+                palette,
+                &SyncEvent::BranchCreated {
+                    branch: "Patch-v0.1.3".into(),
+                    upstream: "origin/Patch-v0.1.3".into()
+                }
+            )
+            .unwrap(),
+            "  ✓ created Patch-v0.1.3 tracking origin/Patch-v0.1.3\n"
+        );
+        assert_eq!(
+            format_sync_event(
+                palette,
+                &SyncEvent::Skipped {
+                    reason: "disabled".into()
+                }
+            )
+            .unwrap(),
+            "Branch sync skipped (disabled)\n"
         );
     }
 

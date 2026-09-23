@@ -19,8 +19,11 @@ It lands in `~/.merge-pipeline/versions/v<X.Y.Z>/bin/merge-pipeline` with a syml
 
 ## 2. Move your workflow files
 
-Workflow JSON files are no longer looked for beside the executable first. Copy the `config/*.json`
-files from your old checkout to one of these locations:
+Workflow JSON files are no longer looked for beside the executable first. If your old files were
+the stock patch/minor/canary set, you do not need to copy anything: run
+`merge-pipeline config init` in the repository (or `merge-pipeline install`, which does it as part
+of wiring the MCP server) and the same four files are written to `<repo>/.merge-pipeline/`.
+Otherwise copy the `config/*.json` files from your old checkout to one of these locations:
 
 | Location                                              | When to use it                          |
 | ----------------------------------------------------- | --------------------------------------- |
@@ -31,7 +34,8 @@ files from your old checkout to one of these locations:
 The full search order is `--config`, then `$MERGE_PIPELINE_CONFIG`, then `<cwd>/.merge-pipeline/`,
 then the user config directory above, then `<directory of the binary>/config` (the old layout,
 kept so an unmoved directory still works). The first directory that exists wins. Run
-`merge-pipeline config path` to see which one was chosen and why.
+`merge-pipeline config path` to see which one was chosen and why, and `merge-pipeline config doctor`
+to check every file before the first run.
 
 The file format is unchanged. Optionally add a `$schema` line so your editor validates the file:
 
@@ -80,6 +84,12 @@ Unknown flags are still rejected (exit code 2).
 - **`dry-run` is unchanged, and still merges.** It performs every merge locally and only stops
   *automatic* pushing; it will still ask "Would you like to push <branch>" for each target that
   has an upstream. Use `test` to see the resolved steps without touching anything.
+- **Branches are synced with origin before the workflow runs.** The old tool ran a plain
+  `git fetch`. The new one runs `git fetch --prune origin`, then, for the branches that match the
+  selected workflow's patterns, offers to delete local branches whose upstream is gone (default
+  yes, so `--yes` deletes them) and creates local tracking branches for new remote ones. Local
+  branches that were never pushed are never touched. Pass `--no-sync` for the old behaviour.
+  See "Branch sync" in the README.
 - **Workflow-file load errors are warnings.** A file that is not valid JSON is reported on stderr
   and skipped; the rest still load. Zero enabled workflows is still a hard error.
 

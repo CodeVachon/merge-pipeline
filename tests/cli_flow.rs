@@ -346,3 +346,96 @@ fn package_json_version_conflict_is_auto_resolved_with_the_higher_version_and_co
         fixture.local_head("staging-patch")
     );
 }
+
+fn write_any_patch_config(dir: &Path) {
+    std::fs::create_dir_all(dir).unwrap();
+    std::fs::write(
+        dir.join("patch.json"),
+        r#"{"name":"Patch Release to Staging Pipeline","order":1,"pipeline":["^Patch-*","^staging-patch$"]}"#,
+    )
+    .unwrap();
+}
+
+/// origin has moved on: Patch-v0.1.1 was merged and deleted, Patch-v0.1.3 is new.
+fn drift_origin(fixture: &Fixture) {
+    fixture.origin_delete_branch("Patch-v0.1.1");
+    fixture.origin_add_branch("Patch-v0.1.3", "main");
+    // Leave exactly one live Patch branch so the pattern resolves without a select prompt
+    // (which --yes cannot answer, having no default).
+    fixture.raw(&fixture.work, &["branch", "-D", "Patch-v0.1.2"]);
+}
+
+#[test]
+fn test_with_yes_prunes_the_stale_branch_creates_the_new_one_and_uses_it() {
+    let fixture = Fixture::new();
+    let config = fixture.temp.path().join("config");
+    write_any_patch_config(&config);
+    drift_origin(&fixture);
+
+    let assert = bin(&fixture)
+        .args(["-c"])
+        .arg(&fixture.work)
+        .args(["-f"])
+        .arg(&config)
+        .args(["-a", "test", "-y"])
+        .assert()
+        .success();
+    let out = stdout_of(&assert);
+
+    assert!(out.contains("$ git fetch --prune origin"), "{out}");
+    assert!(out.contains("Syncing branches with origin..."), "{out}");
+    assert!(
+        out.contains("  ✗ deleted Patch-v0.1.1 (gone from origin)"),
+        "{out}"
+    );
+    assert!(
+        out.contains("  ✓ created Patch-v0.1.3 tracking origin/Patch-v0.1.3"),
+        "{out}"
+    );
+    assert!(
+        out.contains("Step 1: Merge Patch-v0.1.3 into staging-patch"),
+        "{out}"
+    );
+    assert!(out.ends_with("Task Complete\nWork Complete\n"));
+
+    let branches = fixture.raw(&fixture.work, &["branch", "--format=%(refname:short)"]);
+    assert!(!branches.lines().any(|b| b == "Patch-v0.1.1"));
+    assert!(branches.lines().any(|b| b == "Patch-v0.1.3"));
+}
+
+#[test]
+fn no_sync_leaves_the_stale_branch_and_still_plans_against_it() {
+    let fixture = Fixture::new();
+    let config = fixture.temp.path().join("config");
+    write_any_patch_config(&config);
+    drift_origin(&fixture);
+
+    let assert = bin(&fixture)
+        .args(["-c"])
+        .arg(&fixture.work)
+        .args(["-f"])
+        .arg(&config)
+        .args(["-a", "test", "-y", "--no-sync"])
+        .assert()
+        .success();
+    let out = stdout_of(&assert);
+
+    assert!(
+        out.contains("$ git fetch\n"),
+        "plain fetch, no prune: {out}"
+    );
+    assert!(!out.contains("--prune"), "{out}");
+    assert!(out.contains("Branch sync skipped (disabled)"), "{out}");
+    assert!(!out.contains("deleted Patch-v0.1.1"), "{out}");
+    assert!(!out.contains("created Patch-v0.1.3"), "{out}");
+    // The dead branch is still the only local match, so it is what gets planned — exactly the
+    // problem sync exists to prevent.
+    assert!(
+        out.contains("Step 1: Merge Patch-v0.1.1 into staging-patch"),
+        "{out}"
+    );
+
+    let branches = fixture.raw(&fixture.work, &["branch", "--format=%(refname:short)"]);
+    assert!(branches.lines().any(|b| b == "Patch-v0.1.1"));
+    assert!(!branches.lines().any(|b| b == "Patch-v0.1.3"));
+}

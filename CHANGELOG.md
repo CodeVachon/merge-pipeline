@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `merge-pipeline config doctor [-f DIR] [-c REPO] [--json]` validates every workflow file:
+  JSON, `name`, `pipeline` length, each pattern as a regular expression, duplicate names,
+  unknown keys, mixed `order`, and, given a repository, which local branches each pattern
+  matches. Exit 1 only when a run would fail.
+- `merge-pipeline config init [--scope project|user] [--force]` writes the default workflow
+  files (the four in `examples/config/`, embedded in the binary) without overwriting yours.
+- `merge-pipeline install` now also creates the workflow directory for the chosen scope;
+  `--no-config` opts out. Running it twice changes nothing.
+- MCP tools `doctor_config` and `init_config`, returning the same JSON as the two commands.
+- Branch sync before every action: `git fetch --prune origin`, then for branches matching the
+  workflow's patterns, a prompt to delete local branches whose upstream is `[gone]` (default
+  yes) and automatic local tracking branches for new remote branches. `--no-sync` restores the
+  plain fetch. `plan_workflow` and `run_workflow` take a `sync` argument (`{stale: keep|delete,
+  fetch_new}` or `false`; the default never deletes) and report `sync` in their results.
+
+### Changed
+
+- The pre-run fetch is now `git fetch --prune origin` (was `git fetch`).
+
 ## [0.1.0] - unreleased
 
 First release of the Rust rewrite of `@codevachon/cli-merge-pipeline`. Functionally equivalent

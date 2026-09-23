@@ -194,3 +194,39 @@
 {"at":"2026-09-21T20:53:58Z","id":37,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
 {"at":"2026-09-21T20:55:09Z","id":37,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
 {"at":"2026-09-21T20:55:13Z","id":7,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-22T19:12:58Z","id":40,"by":"claude-code","as":"agent","type":"created","title":"Epic: config doctor and default config on install","state":"Todo"}
+{"at":"2026-09-22T19:13:21Z","id":41,"by":"claude-code","as":"agent","type":"created","title":"`config doctor` validates the workflow configuration","state":"Todo"}
+{"at":"2026-09-22T19:13:21Z","id":42,"by":"claude-code","as":"agent","type":"created","title":"`config init` writes default workflows; `install` calls it","state":"Todo"}
+{"at":"2026-09-22T19:13:21Z","id":42,"by":"claude-code","as":"agent","type":"blocked","blocker":41}
+{"at":"2026-09-22T19:14:00Z","id":41,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-22T19:14:00Z","id":41,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-22T19:18:02Z","id":43,"by":"claude-code","as":"agent","type":"created","title":"MCP tools `doctor_config` and `init_config`","state":"Todo"}
+{"at":"2026-09-22T19:19:07Z","id":41,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-22T19:19:08Z","id":42,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-22T19:19:08Z","id":42,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-22T19:21:52Z","id":43,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-22T19:21:52Z","id":43,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-22T19:22:20Z","id":42,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-22T19:22:47Z","id":44,"by":"claude-code","as":"agent","type":"created","title":"Epic: branch sync before a workflow runs (prune stale, fetch new)","state":"Todo"}
+{"at":"2026-09-22T19:23:16Z","id":45,"by":"claude-code","as":"agent","type":"created","title":"Git primitives for branch sync","state":"Todo"}
+{"at":"2026-09-22T19:23:16Z","id":46,"by":"claude-code","as":"agent","type":"created","title":"Sync module and runner integration","state":"Todo"}
+{"at":"2026-09-22T19:23:16Z","id":47,"by":"claude-code","as":"agent","type":"created","title":"CLI: --no-sync flag, rendering, end-to-end tests","state":"Todo"}
+{"at":"2026-09-22T19:23:16Z","id":48,"by":"claude-code","as":"agent","type":"created","title":"MCP sync options and documentation","state":"Todo"}
+{"at":"2026-09-22T19:23:16Z","id":46,"by":"claude-code","as":"agent","type":"blocked","blocker":45}
+{"at":"2026-09-22T19:23:16Z","id":47,"by":"claude-code","as":"agent","type":"blocked","blocker":46}
+{"at":"2026-09-22T19:23:16Z","id":48,"by":"claude-code","as":"agent","type":"blocked","blocker":46}
+{"at":"2026-09-22T19:23:52Z","id":45,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-22T19:23:52Z","id":45,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-22T19:24:58Z","id":43,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-22T19:24:59Z","id":40,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}
+{"at":"2026-09-22T19:25:54Z","id":45,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-22T19:26:01Z","id":46,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-22T19:26:01Z","id":46,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-22T19:30:31Z","id":46,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-22T19:30:32Z","id":47,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-22T19:30:32Z","id":47,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-22T19:32:21Z","id":48,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-22T19:32:21Z","id":48,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
+{"at":"2026-09-22T19:32:38Z","id":47,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-22T19:35:41Z","id":48,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-22T19:35:45Z","id":44,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"Done"}

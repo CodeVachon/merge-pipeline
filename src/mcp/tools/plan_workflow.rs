@@ -3,9 +3,14 @@
 
 use serde_json::{Map, Value, json};
 
-use super::{CommonArgs, Tool, ToolError, bool_or, object_schema, required_string, string_map};
+use super::{
+    CommonArgs, Tool, ToolError, bool_or, object_schema, required_string, string_map, sync_options,
+    sync_report_json, sync_schema,
+};
 use crate::git::Git;
 use crate::pipeline::{Resolution, make_steps, map_pipeline_report, resolved_branches};
+use crate::prompt::ScriptedPrompter;
+use crate::runner::{CollectingSink, sync_branches};
 
 pub struct PlanWorkflow;
 
@@ -85,7 +90,9 @@ impl Tool for PlanWorkflow {
          merge steps (source → target) that run_workflow would perform. Never prompts: a pattern \
          matching several branches is reported under `ambiguous` with its candidates so you can \
          call again with `selections`; a pattern matching nothing is reported under `no_match`. \
-         `complete` is true only when every pattern resolved."
+         `complete` is true only when every pattern resolved. Before mapping it fetches with \
+         --prune and syncs branches per `sync` (default: report stale local branches, create \
+         locals for new remote ones), so the plan reflects origin's current branches."
     }
 
     fn input_schema(&self) -> Value {
@@ -100,9 +107,10 @@ impl Tool for PlanWorkflow {
             json!({
                 "type": "boolean",
                 "default": true,
-                "description": "Run `git fetch` first, as the CLI does. Set false to plan offline."
+                "description": "Fetch from origin first, as the CLI does. Set false to plan offline (which also skips branch sync)."
             }),
         );
+        extra.insert("sync".into(), sync_schema());
         object_schema(extra, &["workflow"])
     }
 
@@ -111,15 +119,33 @@ impl Tool for PlanWorkflow {
         let name = required_string(arguments, "workflow")?;
         let selections = string_map(arguments, "selections")?;
         let fetch = bool_or(arguments, "fetch", true)?;
+        let sync = sync_options(arguments)?;
 
         let loaded = common.load_workflows()?;
         loaded.require_enabled()?;
         let workflow = loaded.find(&name)?;
 
         let mut git = Git::new(&common.cwd);
-        if fetch {
-            git.fetch()?;
-        }
+        let sync_report = match (fetch, sync) {
+            (false, _) => None,
+            (true, None) => {
+                git.fetch()?;
+                None
+            }
+            (true, Some(options)) => {
+                git.fetch_prune()?;
+                // Keep/Delete never prompt, so an empty prompter is safe here.
+                let mut prompter = ScriptedPrompter::new();
+                let mut sink = CollectingSink::default();
+                Some(sync_branches(
+                    &workflow.pipeline,
+                    options,
+                    &mut git,
+                    &mut prompter,
+                    &mut sink,
+                )?)
+            }
+        };
         let branches = git.branch_list()?;
         let report = map_pipeline_report(&workflow.pipeline, &branches, &selections)?;
 
@@ -129,6 +155,7 @@ impl Tool for PlanWorkflow {
             .expect("plan_json returns an object");
         object.insert("workflow".into(), json!(workflow.name));
         object.insert("pipeline".into(), json!(workflow.pipeline));
+        object.insert("sync".into(), sync_report_json(sync_report.as_ref()));
         Ok(payload)
     }
 }

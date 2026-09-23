@@ -8,12 +8,17 @@ use serde_json::{Map, Value, json};
 
 use crate::cli::config_dir;
 use crate::config::{LoadResult, load_workflows};
+use crate::sync::{StalePolicy, SyncOptions, SyncReport};
 
+mod doctor_config;
+mod init_config;
 mod inspect_repo;
 mod list_workflows;
 mod plan_workflow;
 mod run_workflow;
 
+pub use doctor_config::DoctorConfig;
+pub use init_config::InitConfig;
 pub use inspect_repo::InspectRepo;
 pub use list_workflows::ListWorkflows;
 pub use plan_workflow::PlanWorkflow;
@@ -97,6 +102,8 @@ impl Default for Registry {
             Box::new(InspectRepo),
             Box::new(PlanWorkflow),
             Box::new(RunWorkflow),
+            Box::new(DoctorConfig),
+            Box::new(InitConfig),
         ])
     }
 }
@@ -252,6 +259,94 @@ pub fn string_map(
     }
 }
 
+/// The `sync` argument shared by plan_workflow and run_workflow.
+///
+/// `false` skips branch sync (the baseline's plain `git fetch`); absent, `true` or an object runs
+/// it. Without a human there is nobody to ask, so `stale` is `keep` (report only) unless the agent
+/// says `delete`.
+pub fn sync_schema() -> Value {
+    json!({
+        "oneOf": [
+            { "type": "boolean" },
+            {
+                "type": "object",
+                "properties": {
+                    "stale": {
+                        "type": "string",
+                        "enum": ["keep", "delete"],
+                        "default": "keep",
+                        "description": "What to do with local branches matching a pipeline pattern whose upstream is gone from origin: keep (report only) or delete (git branch -D)."
+                    },
+                    "fetch_new": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Create local tracking branches for new origin branches that match a pattern."
+                    }
+                },
+                "additionalProperties": false
+            }
+        ],
+        "description": "Branch sync before the workflow: `git fetch --prune origin`, then report/delete stale local branches and create locals for new remote ones. false skips it; the default is {stale: keep, fetch_new: true}."
+    })
+}
+
+/// Parse the `sync` argument. `Ok(None)` means skip sync.
+pub fn sync_options(arguments: &Value) -> Result<Option<SyncOptions>, ToolError> {
+    let default = SyncOptions {
+        stale: StalePolicy::Keep,
+        fetch_new: true,
+    };
+    match arguments.get("sync") {
+        None | Some(Value::Null) | Some(Value::Bool(true)) => Ok(Some(default)),
+        Some(Value::Bool(false)) => Ok(None),
+        Some(Value::Object(map)) => {
+            let stale = match map.get("stale") {
+                None | Some(Value::Null) => StalePolicy::Keep,
+                Some(Value::String(value)) => match value.trim() {
+                    "" | "keep" => StalePolicy::Keep,
+                    "delete" => StalePolicy::Delete,
+                    other => {
+                        return Err(ToolError::new(format!(
+                            "sync.stale must be \"keep\" or \"delete\", got {other:?}"
+                        )));
+                    }
+                },
+                Some(other) => {
+                    return Err(ToolError::new(format!(
+                        "sync.stale must be a string, got {other}"
+                    )));
+                }
+            };
+            let fetch_new = match map.get("fetch_new") {
+                None | Some(Value::Null) => true,
+                Some(Value::Bool(value)) => *value,
+                Some(other) => {
+                    return Err(ToolError::new(format!(
+                        "sync.fetch_new must be a boolean, got {other}"
+                    )));
+                }
+            };
+            Ok(Some(SyncOptions { stale, fetch_new }))
+        }
+        Some(other) => Err(ToolError::new(format!(
+            "argument `sync` must be a boolean or an object, got {other}"
+        ))),
+    }
+}
+
+/// Sync report → JSON, shared by plan and run. `None` (sync skipped) becomes `null`.
+pub fn sync_report_json(report: Option<&SyncReport>) -> Value {
+    match report {
+        None => Value::Null,
+        Some(report) => json!({
+            "stale": report.stale,
+            "deleted": report.deleted,
+            "kept": report.kept,
+            "created": report.created,
+        }),
+    }
+}
+
 /// Workflow config → JSON, shared by list and plan.
 pub fn workflow_json(workflow: &crate::config::WorkflowConfig) -> Value {
     json!({
@@ -269,7 +364,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn registry_lists_the_four_tools_with_object_schemas() {
+    fn registry_lists_every_tool_with_object_schemas() {
         let registry = Registry::default();
         assert_eq!(
             registry.names(),
@@ -277,7 +372,9 @@ mod tests {
                 "list_workflows",
                 "inspect_repo",
                 "plan_workflow",
-                "run_workflow"
+                "run_workflow",
+                "doctor_config",
+                "init_config"
             ]
         );
         let listed = registry.list();
@@ -305,6 +402,28 @@ mod tests {
                 .unwrap()
                 .contains("boom")
         );
+    }
+
+    #[test]
+    fn sync_argument_parses_every_form() {
+        let keep = SyncOptions {
+            stale: StalePolicy::Keep,
+            fetch_new: true,
+        };
+        assert_eq!(sync_options(&json!({})).unwrap(), Some(keep));
+        assert_eq!(sync_options(&json!({"sync": true})).unwrap(), Some(keep));
+        assert_eq!(sync_options(&json!({"sync": {}})).unwrap(), Some(keep));
+        assert_eq!(sync_options(&json!({"sync": false})).unwrap(), None);
+        assert_eq!(
+            sync_options(&json!({"sync": {"stale": "delete", "fetch_new": false}})).unwrap(),
+            Some(SyncOptions {
+                stale: StalePolicy::Delete,
+                fetch_new: false,
+            })
+        );
+        assert!(sync_options(&json!({"sync": {"stale": "ask"}})).is_err());
+        assert!(sync_options(&json!({"sync": "yes"})).is_err());
+        assert_eq!(sync_report_json(None), Value::Null);
     }
 
     #[test]

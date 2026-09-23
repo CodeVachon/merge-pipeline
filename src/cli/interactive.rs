@@ -16,6 +16,7 @@ use crate::config::{LoadResult, WorkflowConfig, load_workflows};
 use crate::git::Git;
 use crate::prompt::{Choice, PromptError, Prompter, Question};
 use crate::runner::{Action, RunReport, Settings, run_workflow};
+use crate::sync::SyncOptions;
 use crate::ui::{self, Palette, StdoutRenderer};
 
 /// Answers every confirmation with its default, and every select that has a default with that
@@ -175,6 +176,11 @@ pub fn execute(args: &RunArgs, palette: Palette) -> anyhow::Result<RunReport> {
         cwd: cwd.clone(),
         action,
         auto_push,
+        sync: if args.no_sync {
+            None
+        } else {
+            Some(SyncOptions::default())
+        },
     };
     let mut git = Git::new(&cwd).verbose(ui::command_logger(palette));
     let mut sink = StdoutRenderer::new(palette);

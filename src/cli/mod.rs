@@ -10,6 +10,8 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 pub mod config_dir;
+pub mod config_init;
+pub mod doctor;
 pub mod interactive;
 pub mod prompter;
 
@@ -79,6 +81,10 @@ pub struct RunArgs {
     /// Answer every confirmation with its default (merge each step, push each branch)
     #[arg(short = 'y', long)]
     pub yes: bool,
+
+    /// Skip pruning stale local branches and fetching new ones before the workflow
+    #[arg(long)]
+    pub no_sync: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -89,7 +95,7 @@ pub enum Command {
     Upgrade(UpgradeArgs),
     /// Remove the managed installation from this machine
     Uninstall(UninstallArgs),
-    /// Wire the MCP server into an agent's .mcp.json
+    /// Wire the MCP server into an agent's .mcp.json and create the default workflow files
     Install(InstallArgs),
     /// Inspect configuration
     Config {
@@ -149,9 +155,13 @@ pub enum InstallScope {
 
 #[derive(Debug, Clone, Default, Args)]
 pub struct InstallArgs {
-    /// Where to write the wiring
+    /// Where to write the wiring (and the default workflow files)
     #[arg(long, value_enum, default_value_t = InstallScope::Project)]
     pub scope: InstallScope,
+
+    /// Only wire the MCP server; do not create the workflow directory
+    #[arg(long)]
+    pub no_config: bool,
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -164,6 +174,30 @@ pub enum ConfigCommand {
         /// Working directory to resolve <cwd>/.merge-pipeline against
         #[arg(short = 'c', long, value_name = "DIR")]
         cwd: Option<PathBuf>,
+    },
+    /// Validate the workflow files: JSON, names, regexes, ordering, and branch matches
+    Doctor {
+        /// Directory containing workflow JSON files (same as the root --config)
+        #[arg(short = 'f', long, value_name = "PATH")]
+        config: Option<PathBuf>,
+        /// Git repository to check the patterns against (also resolves <cwd>/.merge-pipeline)
+        #[arg(short = 'c', long, value_name = "DIR")]
+        cwd: Option<PathBuf>,
+        /// Machine-readable output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Create the workflow directory with the default workflow files
+    Init {
+        /// Where to create it: <cwd>/.merge-pipeline or the user config directory
+        #[arg(long, value_enum, default_value_t = InstallScope::Project)]
+        scope: InstallScope,
+        /// Working directory for project scope (default: the current directory)
+        #[arg(short = 'c', long, value_name = "DIR")]
+        cwd: Option<PathBuf>,
+        /// Overwrite files that already exist
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -190,6 +224,53 @@ pub fn run_config_path(config: Option<&PathBuf>, cwd: Option<&PathBuf>) -> anyho
         config_dir::resolve_from_process(config.map(PathBuf::as_path), cwd.map(PathBuf::as_path))?;
     println!("{}", resolved.path.display());
     println!("  chosen by: {}", resolved.rule.describe());
+    Ok(())
+}
+
+/// `config doctor`: run every check and print the report. Returns the exit code: 0 when there
+/// are no errors (warnings are allowed), 1 otherwise.
+pub fn run_config_doctor(
+    config: Option<&PathBuf>,
+    cwd: Option<&PathBuf>,
+    json: bool,
+) -> anyhow::Result<i32> {
+    let resolved =
+        config_dir::resolve_from_process(config.map(PathBuf::as_path), cwd.map(PathBuf::as_path))?;
+
+    // Only a repository named explicitly is inspected; the process cwd is not assumed to be one.
+    let branches = match cwd {
+        Some(repo) if repo.join(".git").exists() => {
+            Some(crate::git::Git::new(repo.clone()).branch_list()?)
+        }
+        _ => None,
+    };
+
+    let report = doctor::diagnose(
+        &resolved.path,
+        resolved.rule.describe(),
+        branches.as_deref(),
+    );
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        print!("{}", doctor::render(crate::ui::Palette::detect(), &report));
+    }
+    Ok(if report.ok { 0 } else { 1 })
+}
+
+/// `config init`, also run by `install`: write the default workflows for `scope`.
+pub fn run_config_init(
+    scope: InstallScope,
+    cwd: Option<&PathBuf>,
+    force: bool,
+) -> anyhow::Result<()> {
+    let cwd = match cwd {
+        Some(cwd) => cwd.clone(),
+        None => std::env::current_dir()?,
+    };
+    let dir = config_init::target_dir(scope, &cwd)?;
+    let report = config_init::write_defaults(&dir, force)?;
+    print!("{}", config_init::render(&report));
     Ok(())
 }
 
@@ -224,6 +305,17 @@ mod tests {
         assert!(cli.run.auto_push);
         assert_eq!(cli.run.config, Some(PathBuf::from("/cfg")));
         assert_eq!(cli.run.action, Some(CliAction::DryRun));
+    }
+
+    #[test]
+    fn no_sync_flag_parses_and_defaults_off() {
+        assert!(!Cli::try_parse_from(["merge-pipeline"]).unwrap().run.no_sync);
+        assert!(
+            Cli::try_parse_from(["merge-pipeline", "--no-sync"])
+                .unwrap()
+                .run
+                .no_sync
+        );
     }
 
     #[test]
@@ -293,8 +385,26 @@ mod tests {
                 .unwrap()
                 .command,
             Some(Command::Install(InstallArgs {
-                scope: InstallScope::User
+                scope: InstallScope::User,
+                no_config: false
             }))
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["merge-pipeline", "install", "--no-config"])
+                .unwrap()
+                .command,
+            Some(Command::Install(InstallArgs {
+                scope: InstallScope::Project,
+                no_config: true
+            }))
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["merge-pipeline", "config", "init", "--force"])
+                .unwrap()
+                .command,
+            Some(Command::Config {
+                command: ConfigCommand::Init { force: true, .. }
+            })
         ));
         assert!(matches!(
             Cli::try_parse_from(["merge-pipeline", "config", "path"])
@@ -302,6 +412,14 @@ mod tests {
                 .command,
             Some(Command::Config {
                 command: ConfigCommand::Path { .. }
+            })
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["merge-pipeline", "config", "doctor", "-f", "/cfg", "--json"])
+                .unwrap()
+                .command,
+            Some(Command::Config {
+                command: ConfigCommand::Doctor { json: true, .. }
             })
         ));
         assert!(matches!(

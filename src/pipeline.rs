@@ -74,6 +74,11 @@ fn compile(pattern: &str) -> Result<Regex, PipelineError> {
     })
 }
 
+/// Does `name` match `pattern` the way pipeline mapping matches (case-insensitive search)?
+pub fn pattern_matches(pattern: &str, name: &str) -> Result<bool, PipelineError> {
+    Ok(compile(pattern)?.is_match(name))
+}
+
 fn candidates_for<S: AsRef<str>>(
     pattern: &str,
     branches: &[S],
