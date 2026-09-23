@@ -39,6 +39,39 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+  # A pinned, checksum-verified mdBook release — not a third-party setup action, and not
+  # `cargo install mdbook` (a multi-minute compile on every run) — matching how this project
+  # verifies every other binary it downloads. `mdbook build` itself exits 0 even when it emitted
+  # warnings (the unclosed-tag warning that a broken {{#include}} produces is exactly that kind of
+  # warning), so the build output is grepped for one explicitly. check-links.py then catches a
+  # broken internal link, which a clean build does not.
+  book:
+    name: book
+    runs-on: ubuntu-latest
+    env:
+      MDBOOK_VERSION: 0.5.4
+      MDBOOK_SHA256: 3f28de05dafca9d0f2eab99c662116b0e37b89b1d96a08f8f430b9eeae958cd7
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mdBook
+        run: |
+          asset="mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL -o "$asset" \
+            "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/$asset"
+          echo "$MDBOOK_SHA256  $asset" | sha256sum -c -
+          tar -xzf "$asset"
+          echo "$PWD" >> "$GITHUB_PATH"
+
+      - name: Build
+        run: |
+          mdbook build docs 2>build.log
+          cat build.log
+          ! grep -q " WARN " build.log
+
+      - name: Check internal links
+        run: python3 docs/check-links.py docs/book
+
   # The example workflow files must validate against the published schema, so a schema change that
   # breaks them (or an example that drifts from the schema) fails here rather than in a user's editor.
   schema:

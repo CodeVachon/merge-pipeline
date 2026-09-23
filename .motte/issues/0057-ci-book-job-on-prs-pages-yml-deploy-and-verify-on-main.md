@@ -1,12 +1,13 @@
 ---
 id: 57
 title: "CI: book job on PRs, pages.yml deploy-and-verify on main"
-state: Todo
+state: In Progress
 parent: 55
+assignee: claude-code
 labels: [docs]
 blockedBy: [56]
 created: 2026-09-23T18:33:37Z
-updated: 2026-09-23T18:33:37Z
+updated: 2026-09-23T18:40:57Z
 ---
 
 ## Description

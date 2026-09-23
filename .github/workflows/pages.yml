@@ -1,0 +1,88 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["docs/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+# Deploying needs pages: write, and id-token: write for the OIDC token the deploy action exchanges.
+# Nothing here writes to the repository.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and let a newer commit win: this publishes a site, so an older build
+# finishing last would silently roll it back.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  MDBOOK_VERSION: 0.5.4
+  MDBOOK_SHA256: 3f28de05dafca9d0f2eab99c662116b0e37b89b1d96a08f8f430b9eeae958cd7
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mdBook
+        run: |
+          asset="mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL -o "$asset" \
+            "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/$asset"
+          echo "$MDBOOK_SHA256  $asset" | sha256sum -c -
+          tar -xzf "$asset"
+          echo "$PWD" >> "$GITHUB_PATH"
+
+      - name: Build
+        run: |
+          mdbook build docs 2>build.log
+          cat build.log
+          ! grep -q " WARN " build.log
+
+      - name: Check internal links
+        run: python3 docs/check-links.py docs/book
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      # Verifying the artefact rather than the build. A deployment that reports success while the
+      # homepage serves something else — or nothing — is the exact failure this step exists to
+      # catch, and only a request to the live URL can tell the difference.
+      - name: The published site must serve real content
+        run: |
+          url="${{ steps.deploy.outputs.page_url }}"
+
+          for attempt in $(seq 1 20); do
+            # Silenced: failing until the fresh deployment is live is what this loop is for.
+            if body="$(curl -fsS "$url" 2>/dev/null)"; then
+              echo "$body" | grep -qF "Merge git branches, one into the next" || {
+                echo "$url resolves, but does not look like the merge-pipeline book" >&2
+                exit 1
+              }
+              echo "$url resolves and serves the book"
+              exit 0
+            fi
+            sleep 6
+          done
+
+          echo "$url did not resolve within two minutes" >&2
+          exit 1
