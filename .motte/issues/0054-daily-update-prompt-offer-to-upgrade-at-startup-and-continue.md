@@ -1,11 +1,11 @@
 ---
 id: 54
 title: "Daily update prompt: offer to upgrade at startup and continue on the new version"
-state: In Progress
+state: Done
 assignee: claude-code
 labels: [self-update, cli]
 created: 2026-09-23T15:52:15Z
-updated: 2026-09-23T15:52:48Z
+updated: 2026-09-23T18:13:17Z
 ---
 
 ## Description
@@ -25,3 +25,17 @@ Behaviour:
 ## Plan
 
 Implement in src/selfupdate/nudge.rs (rename to update_prompt.rs or keep, note the choice), wire in src/cli/interactive.rs before config loading with the InteractivePrompter/AssumeDefaults already in scope. Work on branch feat/update-prompt stacked on feat/version-management (PR #2 still open); open a `feature` PR with base feat/version-management.
+
+## Notes
+
+### 2026-09-23T18:13:17Z — claude-code (agent)
+
+Completed by a sub-agent that hit a session rate limit mid-run (unit tests were green, e2e tests not yet written); I resumed and finished under Sonnet 5 after the limit reset.
+
+Verified independently before committing: cargo fmt --check clean, clippy -D warnings clean, full suite 218/218 passed (5 new e2e tests in tests/update_prompt.rs using a fake managed layout + fake release server serving a shell-script "binary", 4 new unit tests in src/selfupdate/update_prompt.rs). Manual smoke run against a real fake install dir with no fake server (so the lookup hits the real GitHub API or times out) confirmed the offer is silent when nothing applies and the run proceeds straight through to the normal config-not-found error — no blocking, no crash.
+
+Design as implemented (matches the spec): `maybe_offer_update` runs in src/cli/interactive.rs immediately after the title, before config load. Gate: `update_prompt::disabled()` (MERGE_PIPELINE_NO_UPDATE_CHECK, CI, or MERGE_PIPELINE_REEXEC=1) plus a terminal check unless --yes. `UpgradeContext::detect()` failing (unmanaged binary) skips silently. `offer_update_with` takes an injected clock and lookup fn for testability; records the attempt in update-check.json before asking anything, so a declined or failed lookup counts toward the 24h interval even though nothing was installed. On accept, reuses `run_upgrade_with` (the same code `upgrade` calls) then `update_prompt::reexec` replaces the process via `CommandExt::exec` on unix (Windows falls back to spawn+wait+exit, untested here — no Windows runner). On any failure (upgrade error or exec itself failing) prints a warning and the original run continues unmodified.
+
+Old `src/selfupdate/nudge.rs` deleted; `update_nudge()` call removed from main.rs. README gained a "The daily update offer" section with the exact prompt text; CHANGELOG Unreleased updated.
+
+Committed as 2b71ca4 on feat/update-prompt (stacked on feat/version-management, which is stacked on docs/pr-workflow — none of the three PRs had merged yet when this branch was created).
