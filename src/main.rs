@@ -33,6 +33,8 @@ fn run_subcommand(command: Command) -> anyhow::Result<i32> {
     match command {
         Command::Mcp => merge_pipeline::mcp::serve().map(|()| 0),
         Command::Upgrade(args) => merge_pipeline::selfupdate::run_upgrade(&args).map(|()| 0),
+        Command::Versions(args) => merge_pipeline::selfupdate::run_versions(&args).map(|()| 0),
+        Command::Use(args) => merge_pipeline::selfupdate::run_use(&args).map(|()| 0),
         Command::Uninstall(args) => merge_pipeline::selfupdate::run_uninstall(&args).map(|()| 0),
         Command::Install(args) => {
             merge_pipeline::mcp::run_install(&args)?;

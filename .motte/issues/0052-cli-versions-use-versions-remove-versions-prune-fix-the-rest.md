@@ -1,12 +1,13 @@
 ---
 id: 52
 title: "CLI: `versions`, `use`, `versions remove`, `versions prune`; fix the restart message"
-state: Todo
+state: In Progress
 parent: 50
+assignee: claude-code
 labels: [self-update, cli]
 blockedBy: [51]
 created: 2026-09-23T15:16:17Z
-updated: 2026-09-23T15:16:17Z
+updated: 2026-09-23T15:26:11Z
 ---
 
 ## Description

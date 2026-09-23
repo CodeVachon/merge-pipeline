@@ -1,9 +1,9 @@
 //! Command-line surface: argument parsing and the interactive run flow.
 //!
 //! The root command (no subcommand) is the interactive workflow run the baseline offered. The
-//! subcommands are the additions of the rewrite: `mcp`, `upgrade`, `uninstall`, `install`,
-//! `config path` and `completion`. Their argument structs live here so `main.rs` can dispatch
-//! to the owning module by reference.
+//! subcommands are the additions of the rewrite: `mcp`, `upgrade`, `versions`, `use`,
+//! `uninstall`, `install`, `config` and `completion`. Their argument structs live here so
+//! `main.rs` can dispatch to the owning module by reference.
 
 use std::path::PathBuf;
 
@@ -93,6 +93,10 @@ pub enum Command {
     Mcp,
     /// Update merge-pipeline in place, or check whether an update is available
     Upgrade(UpgradeArgs),
+    /// List installed versions; `remove` and `prune` delete old ones
+    Versions(VersionsArgs),
+    /// Switch to an installed version, downloading it first if needed
+    Use(UseArgs),
     /// Remove the managed installation from this machine
     Uninstall(UninstallArgs),
     /// Wire the MCP server into an agent's .mcp.json and create the default workflow files
@@ -126,6 +130,54 @@ pub struct UpgradeArgs {
     /// Reinstall even if already on the target version
     #[arg(long)]
     pub force: bool,
+
+    /// Machine-readable output
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// `versions`: the list by default, or one of its subcommands.
+#[derive(Debug, Clone, Default, Args)]
+pub struct VersionsArgs {
+    #[command(subcommand)]
+    pub command: Option<VersionsCommand>,
+
+    /// Ask GitHub for the newest release instead of using the last check's result
+    #[arg(long)]
+    pub check: bool,
+
+    /// Machine-readable output
+    #[arg(long)]
+    pub json: bool,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum VersionsCommand {
+    /// Delete installed versions (never the active one or the one running)
+    Remove {
+        /// Versions to delete, e.g. 0.1.0 or v0.1.0
+        #[arg(required = true, value_name = "VERSION")]
+        versions: Vec<String>,
+        /// Machine-readable output
+        #[arg(long)]
+        json: bool,
+    },
+    /// Delete all but the newest N versions (never the active one or the one running)
+    Prune {
+        /// How many versions to keep on disk
+        #[arg(long, default_value_t = 2, value_name = "N")]
+        keep: usize,
+        /// Machine-readable output
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Debug, Clone, Default, Args)]
+pub struct UseArgs {
+    /// Version to switch to, e.g. 0.2.0 or v0.2.0
+    #[arg(value_name = "VERSION")]
+    pub version: String,
 
     /// Machine-readable output
     #[arg(long)]
@@ -361,6 +413,62 @@ mod tests {
             }
             other => panic!("unexpected {other:?}"),
         }
+    }
+
+    #[test]
+    fn versions_and_use_parse() {
+        let cli = Cli::try_parse_from(["merge-pipeline", "versions", "--json", "--check"]).unwrap();
+        match cli.command {
+            Some(Command::Versions(args)) => {
+                assert!(args.command.is_none());
+                assert!(args.json && args.check);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        let cli = Cli::try_parse_from([
+            "merge-pipeline",
+            "versions",
+            "remove",
+            "0.1.0",
+            "v0.0.9",
+            "--json",
+        ])
+        .unwrap();
+        match cli.command {
+            Some(Command::Versions(VersionsArgs {
+                command: Some(VersionsCommand::Remove { versions, json }),
+                ..
+            })) => {
+                assert_eq!(versions, vec!["0.1.0", "v0.0.9"]);
+                assert!(json);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        assert!(
+            Cli::try_parse_from(["merge-pipeline", "versions", "remove"]).is_err(),
+            "remove needs at least one version"
+        );
+        let cli =
+            Cli::try_parse_from(["merge-pipeline", "versions", "prune", "--keep", "1"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Some(Command::Versions(VersionsArgs {
+                command: Some(VersionsCommand::Prune {
+                    keep: 1,
+                    json: false
+                }),
+                ..
+            }))
+        ));
+        let cli = Cli::try_parse_from(["merge-pipeline", "use", "0.2.0"]).unwrap();
+        match cli.command {
+            Some(Command::Use(args)) => {
+                assert_eq!(args.version, "0.2.0");
+                assert!(!args.json);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+        assert!(Cli::try_parse_from(["merge-pipeline", "use"]).is_err());
     }
 
     #[test]

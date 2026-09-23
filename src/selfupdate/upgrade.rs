@@ -277,10 +277,10 @@ pub fn run_upgrade_with(
         return Ok(0);
     }
 
-    emit(out, "")?;
+    // PATH points at the stable `current` link, so there is no shell to restart.
     emit(
         out,
-        "Open a new shell, or run `merge-pipeline --version` to confirm.",
+        super::versions::now_using_line(&wanted, Some(&current)),
     )?;
     Ok(0)
 }
