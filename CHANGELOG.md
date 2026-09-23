@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-23
+
 ### Added
 
 - `merge-pipeline config doctor [-f DIR] [-c REPO] [--json]` validates every workflow file:
@@ -75,5 +77,6 @@ See [MIGRATING.md](MIGRATING.md) for the upgrade path.
 
 - `bootstrap.sh`, the `data/` directory, and all Node/Bun tooling.
 
-[Unreleased]: https://github.com/CodeVachon/merge-pipeline/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/CodeVachon/merge-pipeline/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/CodeVachon/merge-pipeline/releases/tag/v0.2.0
 [0.1.0]: https://github.com/CodeVachon/merge-pipeline/releases/tag/v0.1.0
