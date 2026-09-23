@@ -10,6 +10,9 @@ operations to agents over the Model Context Protocol and updates itself in place
 This is the Rust rewrite of `@codevachon/cli-merge-pipeline`. Coming from that tool? Read
 [MIGRATING.md](MIGRATING.md).
 
+**Full documentation: <https://codevachon.github.io/merge-pipeline/>** — everything below, plus the
+MCP tool reference, in one browsable, searchable book.
+
 ## Install
 
 ```sh

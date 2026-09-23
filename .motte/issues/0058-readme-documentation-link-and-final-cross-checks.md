@@ -1,12 +1,13 @@
 ---
 id: 58
 title: README documentation link and final cross-checks
-state: Todo
+state: In Progress
 parent: 55
+assignee: claude-code
 labels: [docs]
 blockedBy: [56, 57]
 created: 2026-09-23T18:33:37Z
-updated: 2026-09-23T18:33:37Z
+updated: 2026-09-23T18:43:19Z
 ---
 
 ## Description
