@@ -292,5 +292,7 @@ jobs:
             dist/*.gz
             dist/checksums.txt
           generate_release_notes: true
-          # 0.x ships as pre-releases until the interface settles.
-          prerelease: ${{ startsWith(needs.gate.outputs.tag, 'v0.') }}
+          # Every tagged build is a full release and becomes "latest", so the installer's
+          # /releases/latest lookup and `upgrade` find it.
+          prerelease: false
+          make_latest: true
