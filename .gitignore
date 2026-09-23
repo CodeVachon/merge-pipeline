@@ -5,3 +5,4 @@
 /dist/
 # macOS
 .DS_Store
+docs/book/

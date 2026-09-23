@@ -1,0 +1,10 @@
+Switch to an installed version, downloading it first if needed
+
+Usage: merge-pipeline use [OPTIONS] <VERSION>
+
+Arguments:
+  <VERSION>  Version to switch to, e.g. 0.2.0 or v0.2.0
+
+Options:
+      --json  Machine-readable output
+  -h, --help  Print help

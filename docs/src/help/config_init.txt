@@ -1,0 +1,22 @@
+Create the workflow directory with the default workflow files
+
+Usage: merge-pipeline config init [OPTIONS]
+
+Options:
+      --scope <SCOPE>
+          Where to create it: <cwd>/.merge-pipeline or the user config directory
+
+          Possible values:
+          - project: `.mcp.json` in the current directory
+          - user:    The user-level agent configuration
+          
+          [default: project]
+
+  -c, --cwd <DIR>
+          Working directory for project scope (default: the current directory)
+
+      --force
+          Overwrite files that already exist
+
+  -h, --help
+          Print help (see a summary with '-h')

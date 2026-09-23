@@ -251,3 +251,12 @@
 {"at":"2026-09-23T15:52:48Z","id":54,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
 {"at":"2026-09-23T15:52:48Z","id":54,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}
 {"at":"2026-09-23T18:13:17Z","id":54,"by":"claude-code","as":"agent","type":"state","from":"In Progress","to":"Done"}
+{"at":"2026-09-23T18:33:17Z","id":55,"by":"claude-code","as":"agent","type":"created","title":"Epic: documentation site on GitHub Pages (mdBook)","state":"Todo"}
+{"at":"2026-09-23T18:33:37Z","id":56,"by":"claude-code","as":"agent","type":"created","title":"mdBook scaffold: book.toml, SUMMARY.md, and content pages","state":"Todo"}
+{"at":"2026-09-23T18:33:37Z","id":57,"by":"claude-code","as":"agent","type":"created","title":"CI: book job on PRs, pages.yml deploy-and-verify on main","state":"Todo"}
+{"at":"2026-09-23T18:33:37Z","id":58,"by":"claude-code","as":"agent","type":"created","title":"README documentation link and final cross-checks","state":"Todo"}
+{"at":"2026-09-23T18:33:37Z","id":57,"by":"claude-code","as":"agent","type":"blocked","blocker":56}
+{"at":"2026-09-23T18:33:37Z","id":58,"by":"claude-code","as":"agent","type":"blocked","blocker":56}
+{"at":"2026-09-23T18:33:37Z","id":58,"by":"claude-code","as":"agent","type":"blocked","blocker":57}
+{"at":"2026-09-23T18:35:10Z","id":56,"by":"claude-code","as":"agent","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-09-23T18:35:10Z","id":56,"by":"claude-code","as":"agent","type":"assigned","from":null,"to":"claude-code"}

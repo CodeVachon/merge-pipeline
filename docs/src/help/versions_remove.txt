@@ -1,0 +1,10 @@
+Delete installed versions (never the active one or the one running)
+
+Usage: merge-pipeline versions remove [OPTIONS] <VERSION>...
+
+Arguments:
+  <VERSION>...  Versions to delete, e.g. 0.1.0 or v0.1.0
+
+Options:
+      --json  Machine-readable output
+  -h, --help  Print help
