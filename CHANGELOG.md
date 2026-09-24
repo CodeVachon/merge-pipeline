@@ -6,8 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Once a day, an interactive run starts by asking whether to install a newer release if one
+  exists. Yes (the default, also answered by `--yes`) upgrades in place and continues the same
+  run on the new version; no continues on the current version. Off with
+  `MERGE_PIPELINE_NO_UPDATE_CHECK=1` or under `CI`; never shown for a binary that is not a
+  managed installation.
+- `merge-pipeline versions [--check] [--json]` lists the versions installed under
+  `~/.merge-pipeline/versions/`, marking the active one and the one running.
+- `merge-pipeline use <version>` switches the active version, downloading and verifying it
+  first when it is not on disk.
+- `merge-pipeline versions remove <version>...` and `merge-pipeline versions prune [--keep N]`
+  delete old versions; the active version and the one running are never removed.
+
 ### Changed
 
+- The dimmed "an update is available" line that appeared after a run is gone; the update offer
+  above replaces it, so you are told once and can act on it.
+- `upgrade` no longer says to open a new shell. It never was needed: PATH points at the stable
+  `current` link, so every version change applies to the next command. `upgrade` and `use` now
+  end with `now using vX.Y.Z; takes effect on your next merge-pipeline command`.
 - Development now goes through pull requests; release notes are generated from PR titles
   and labels (`.github/release.yml`).
 

@@ -1,0 +1,48 @@
+Merge git branches according to configurable release workflows, with MCP tooling and self-update built in.
+
+Usage: merge-pipeline [OPTIONS]
+       merge-pipeline <COMMAND>
+
+Commands:
+  mcp         Serve the Model Context Protocol over stdio, for agents
+  upgrade     Update merge-pipeline in place, or check whether an update is available
+  versions    List installed versions; `remove` and `prune` delete old ones
+  use         Switch to an installed version, downloading it first if needed
+  uninstall   Remove the managed installation from this machine
+  install     Wire the MCP server into an agent's .mcp.json and create the default workflow files
+  config      Inspect configuration
+  completion  Print a shell completion script
+  help        Print this message or the help of the given subcommand(s)
+
+Options:
+  -c, --cwd <DIR>
+          Working directory of the git repository (asked interactively when omitted)
+
+  -w, --workflow <NAME>
+          Select a workflow by name
+
+  -p, --auto-push
+          Automatically push each branch to origin
+
+  -f, --config <PATH>
+          Directory containing workflow JSON files
+
+  -a, --action <ACTION>
+          What would you like to do
+
+          Possible values:
+          - run:     Merge each step and push the targets (asks about pushing unless --auto-push)
+          - dry-run: Merge each step locally; never pushes automatically
+          - test:    Only resolve the pipeline to branches and print the steps
+
+  -y, --yes
+          Answer every confirmation with its default (merge each step, push each branch)
+
+      --no-sync
+          Skip pruning stale local branches and fetching new ones before the workflow
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version

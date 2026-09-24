@@ -1,0 +1,9 @@
+Print a shell completion script
+
+Usage: merge-pipeline completion <SHELL>
+
+Arguments:
+  <SHELL>  The shell to generate for [possible values: bash, elvish, fish, powershell, zsh]
+
+Options:
+  -h, --help  Print help

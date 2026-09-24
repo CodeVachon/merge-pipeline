@@ -82,7 +82,7 @@ Unknown flags are still rejected (exit code 2).
   hyphens, which matches `Patch-v0.1.1` and also a branch called `Patchwork`. If you want "Patch-
   followed by anything", write `^Patch-.*`. Existing configs keep working as they did.
 - **`dry-run` is unchanged, and still merges.** It performs every merge locally and only stops
-  *automatic* pushing; it will still ask "Would you like to push <branch>" for each target that
+  *automatic* pushing; it will still ask "Would you like to push `<branch>`" for each target that
   has an upstream. Use `test` to see the resolved steps without touching anything.
 - **Branches are synced with origin before the workflow runs.** The old tool ran a plain
   `git fetch`. The new one runs `git fetch --prune origin`, then, for the branches that match the

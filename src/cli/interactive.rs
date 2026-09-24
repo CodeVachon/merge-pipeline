@@ -1,10 +1,11 @@
 //! The interactive run: the baseline's `src/index.ts` `setup()` + `main()`.
 //!
-//! Order of operations is preserved exactly: title, config discovery, workflow loading, working
-//! directory, clean-tree guard, workflow selection, action selection, auto-push question (run
-//! only), then the runner. Every question goes through the [`Prompter`] so `--yes` and tests can
+//! Order of operations is preserved exactly: title, the once-a-day update offer, config
+//! discovery, workflow loading, working directory, clean-tree guard, workflow selection, action
+//! selection, auto-push question (run only), then the runner. Every question goes through the [`Prompter`] so `--yes` and tests can
 //! answer without a terminal.
 
+use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow};
@@ -16,6 +17,8 @@ use crate::config::{LoadResult, WorkflowConfig, load_workflows};
 use crate::git::Git;
 use crate::prompt::{Choice, PromptError, Prompter, Question};
 use crate::runner::{Action, RunReport, Settings, run_workflow};
+use crate::selfupdate::UpgradeContext;
+use crate::selfupdate::update_prompt::{self, Offer};
 use crate::sync::SyncOptions;
 use crate::ui::{self, Palette, StdoutRenderer};
 
@@ -144,6 +147,64 @@ fn select_auto_push(
     )?)
 }
 
+/// Once a day, offer to update before anything else happens, so the run that follows is on
+/// the new version.
+///
+/// Only asked where it can act and be answered: a managed install, on a terminal (or with
+/// `--yes`, which answers without one). A dev build, a pipe, or the opt-out variables skip it
+/// silently. On yes the process re-executes on the new binary with the same arguments; if that
+/// fails, or the upgrade itself fails, the run continues on this version with a warning.
+fn maybe_offer_update(
+    args: &RunArgs,
+    prompter: &mut dyn Prompter,
+    palette: Palette,
+) -> anyhow::Result<()> {
+    if update_prompt::disabled() {
+        return Ok(());
+    }
+    let on_terminal = std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
+    if !args.yes && !on_terminal {
+        return Ok(());
+    }
+    // Not managed (or an unsupported host): nothing could be installed, so nothing is asked.
+    let Ok(ctx) = UpgradeContext::detect() else {
+        return Ok(());
+    };
+
+    match update_prompt::offer_update(&ctx, prompter, &mut std::io::stdout())? {
+        Offer::NotDue | Offer::NothingNewer => {}
+        Offer::Declined { .. } => {
+            println!(
+                "{}",
+                palette.dim("skipping; run merge-pipeline upgrade any time")
+            );
+        }
+        Offer::Failed { latest, error } => {
+            eprintln!(
+                "{} could not update to {latest}: {error}",
+                palette.red("warning:")
+            );
+            eprintln!(
+                "{}",
+                palette.dim("continuing on this version; run merge-pipeline upgrade any time")
+            );
+        }
+        Offer::Upgraded { to, binary } => {
+            println!();
+            let error = update_prompt::reexec(&binary);
+            eprintln!(
+                "{} installed {to} but could not restart on it: {error}",
+                palette.red("warning:")
+            );
+            eprintln!(
+                "{}",
+                palette.dim("continuing on this version; the next command will use the new one")
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Everything up to and including the run. Errors propagate so `main` can render them.
 pub fn execute(args: &RunArgs, palette: Palette) -> anyhow::Result<RunReport> {
     let mut prompter: Box<dyn Prompter> = if args.yes {
@@ -151,6 +212,8 @@ pub fn execute(args: &RunArgs, palette: Palette) -> anyhow::Result<RunReport> {
     } else {
         Box::new(InteractivePrompter)
     };
+
+    maybe_offer_update(args, prompter.as_mut(), palette)?;
 
     let cwd_hint = match &args.cwd {
         Some(cwd) => cwd.clone(),

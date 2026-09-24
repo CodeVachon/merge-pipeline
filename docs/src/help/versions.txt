@@ -1,0 +1,13 @@
+List installed versions; `remove` and `prune` delete old ones
+
+Usage: merge-pipeline versions [OPTIONS] [COMMAND]
+
+Commands:
+  remove  Delete installed versions (never the active one or the one running)
+  prune   Delete all but the newest N versions (never the active one or the one running)
+  help    Print this message or the help of the given subcommand(s)
+
+Options:
+      --check  Ask GitHub for the newest release instead of using the last check's result
+      --json   Machine-readable output
+  -h, --help   Print help

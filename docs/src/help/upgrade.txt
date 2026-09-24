@@ -1,0 +1,13 @@
+Update merge-pipeline in place, or check whether an update is available
+
+Usage: merge-pipeline upgrade [OPTIONS] [TARGET]
+
+Arguments:
+  [TARGET]  Install this version instead of the newest
+
+Options:
+      --check     Report whether an update is available, changing nothing
+      --keep <N>  How many versions to keep on disk [default: 2]
+      --force     Reinstall even if already on the target version
+      --json      Machine-readable output
+  -h, --help      Print help

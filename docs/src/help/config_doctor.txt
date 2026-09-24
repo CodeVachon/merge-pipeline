@@ -1,0 +1,9 @@
+Validate the workflow files: JSON, names, regexes, ordering, and branch matches
+
+Usage: merge-pipeline config doctor [OPTIONS]
+
+Options:
+  -f, --config <PATH>  Directory containing workflow JSON files (same as the root --config)
+  -c, --cwd <DIR>      Git repository to check the patterns against (also resolves <cwd>/.merge-pipeline)
+      --json           Machine-readable output
+  -h, --help           Print help

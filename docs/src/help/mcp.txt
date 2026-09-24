@@ -1,0 +1,6 @@
+Serve the Model Context Protocol over stdio, for agents
+
+Usage: merge-pipeline mcp
+
+Options:
+  -h, --help  Print help

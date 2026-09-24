@@ -1,10 +1,10 @@
 ---
 id: 50
 title: "Epic: nvm-style version management (versions, use, remove, prune)"
-state: Todo
+state: Done
 labels: [self-update, cli]
 created: 2026-09-23T15:15:25Z
-updated: 2026-09-23T15:15:25Z
+updated: 2026-09-23T15:29:59Z
 ---
 
 ## Description
@@ -23,3 +23,9 @@ Commands:
 - `upgrade` keeps its behaviour but its closing line becomes `now using vX.Y.Z; takes effect on your next merge-pipeline command` (also for `use`). Not-managed installs (cargo target/) get the existing curl|sh hint for all of these.
 - Shell completion for `use`/`versions remove` may list installed versions if clap_complete makes that cheap; otherwise skip.
 - README "Keeping it up to date" section documents all four and states plainly that no restart is needed; CHANGELOG Unreleased.
+
+## Notes
+
+### 2026-09-23T15:29:59Z — claude-code (agent)
+
+Record for the "restart" question: a shell restart was never required after `upgrade`. The command on PATH is a fixed path (~/.local/bin/merge-pipeline) that symlinks to <root>/current/bin/merge-pipeline, and `current` symlinks to a version directory; the shell resolves those links on every exec, and the PATH entry never changes so there is no command-hash to refresh. The "Open a new shell" line was copied from motte's upgrade output and was misleading; it is gone, and `upgrade`/`use` now say the change applies to the next command. Delivered on branch feat/version-management as one PR (stacked on #1 while it was still open).

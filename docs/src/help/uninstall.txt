@@ -1,0 +1,8 @@
+Remove the managed installation from this machine
+
+Usage: merge-pipeline uninstall [OPTIONS]
+
+Options:
+  -y, --yes   Skip the confirmation
+      --json  Machine-readable output
+  -h, --help  Print help

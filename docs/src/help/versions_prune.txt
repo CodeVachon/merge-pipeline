@@ -1,0 +1,8 @@
+Delete all but the newest N versions (never the active one or the one running)
+
+Usage: merge-pipeline versions prune [OPTIONS]
+
+Options:
+      --keep <N>  How many versions to keep on disk [default: 2]
+      --json      Machine-readable output
+  -h, --help      Print help

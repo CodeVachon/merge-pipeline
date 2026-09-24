@@ -1,0 +1,19 @@
+Wire the MCP server into an agent's .mcp.json and create the default workflow files
+
+Usage: merge-pipeline install [OPTIONS]
+
+Options:
+      --scope <SCOPE>
+          Where to write the wiring (and the default workflow files)
+
+          Possible values:
+          - project: `.mcp.json` in the current directory
+          - user:    The user-level agent configuration
+          
+          [default: project]
+
+      --no-config
+          Only wire the MCP server; do not create the workflow directory
+
+  -h, --help
+          Print help (see a summary with '-h')

@@ -15,9 +15,10 @@
 
 pub mod download;
 pub mod layout;
-pub mod nudge;
 pub mod releases;
+pub mod update_prompt;
 pub mod upgrade;
+pub mod versions;
 
 use std::io::Write;
 
@@ -31,8 +32,12 @@ pub use layout::{
 };
 pub use releases::{ReleaseError, resolve_latest_version};
 pub use upgrade::{UninstallOptions, UpgradeContext, UpgradeError, UpgradeOptions};
+pub use versions::{
+    Kept, ListOptions, PruneOptions, RemoveOptions, RemoveReport, Switched, UseOptions,
+    VersionEntry, VersionsError,
+};
 
-use crate::cli::{UninstallArgs, UpgradeArgs};
+use crate::cli::{UninstallArgs, UpgradeArgs, UseArgs, VersionsArgs, VersionsCommand};
 
 impl From<&UpgradeArgs> for UpgradeOptions {
     fn from(args: &UpgradeArgs) -> Self {
@@ -78,5 +83,60 @@ pub fn run_upgrade(args: &UpgradeArgs) -> anyhow::Result<()> {
 pub fn run_uninstall(args: &UninstallArgs) -> anyhow::Result<()> {
     let options = UninstallOptions::from(args);
     let code = upgrade::run_uninstall(&options, &mut std::io::stdout())?;
+    finish(code)
+}
+
+/// `merge-pipeline versions [remove|prune]`: entry point used by `main`.
+pub fn run_versions(args: &VersionsArgs) -> anyhow::Result<()> {
+    let out = &mut std::io::stdout();
+    let code = match &args.command {
+        None => {
+            let ctx = UpgradeContext::detect()?;
+            versions::run_list_with(
+                &ListOptions {
+                    check: args.check,
+                    json: args.json,
+                },
+                &ctx,
+                out,
+            )?
+        }
+        Some(VersionsCommand::Remove { versions, json }) => {
+            let install = locate_install().ok_or(UpgradeError::NotInstalled)?;
+            versions::run_remove_with(
+                &RemoveOptions {
+                    versions: versions.clone(),
+                    json: *json,
+                },
+                &install,
+                out,
+            )?
+        }
+        Some(VersionsCommand::Prune { keep, json }) => {
+            let install = locate_install().ok_or(UpgradeError::NotInstalled)?;
+            versions::run_prune_with(
+                &PruneOptions {
+                    keep: *keep,
+                    json: *json,
+                },
+                &install,
+                out,
+            )?
+        }
+    };
+    finish(code)
+}
+
+/// `merge-pipeline use <version>`: entry point used by `main`.
+pub fn run_use(args: &UseArgs) -> anyhow::Result<()> {
+    let ctx = UpgradeContext::detect()?;
+    let code = versions::run_use_with(
+        &UseOptions {
+            version: args.version.clone(),
+            json: args.json,
+        },
+        &ctx,
+        &mut std::io::stdout(),
+    )?;
     finish(code)
 }

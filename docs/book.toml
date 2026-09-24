@@ -1,0 +1,21 @@
+[book]
+title = "merge-pipeline"
+description = "Merge git branches, one into the next, according to a configured workflow."
+authors = ["Christopher Vachon"]
+language = "en"
+src = "src"
+
+[output.html]
+git-repository-url = "https://github.com/CodeVachon/merge-pipeline"
+edit-url-template = "https://github.com/CodeVachon/merge-pipeline/edit/main/docs/{path}"
+site-url = "/merge-pipeline/"
+default-theme = "light"
+preferred-dark-theme = "navy"
+
+[output.html.search]
+enable = true
+limit-results = 20
+
+[output.html.fold]
+enable = true
+level = 1
