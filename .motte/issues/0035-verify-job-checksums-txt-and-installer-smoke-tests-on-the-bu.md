@@ -7,7 +7,7 @@ assignee: claude-code
 labels: [release]
 blockedBy: [21, 22, 31, 33]
 created: 2026-09-17T17:14:06Z
-updated: 2026-09-21T20:48:26Z
+updated: 2026-09-23T15:06:29Z
 ---
 
 ## Description
@@ -27,3 +27,7 @@ smoke.sh checks: --version == "merge-pipeline <v>", --help and upgrade --help ex
 verify-windows: install.ps1 against the same served dist/, then --version equality and --help in pwsh. Windows has no git fixture smoke; noted as a gap.
 
 Verified locally on darwin-arm64: release.yml parses (ruby YAML), `sh -n scripts/smoke.sh`, smoke.sh against target/release passes, and a full replay of the verify job (gzip asset, shasum checksums.txt, http.server, install.sh into a temp root, smoke.sh on the installed symlink) passes all 8 checks including both upgrade checks. Not verified locally: the mcp handshake (subcommand still a stub, #22 in progress), install.ps1 (no pwsh here), actionlint/shellcheck (not installed). CI runs the real thing on the first tag.
+
+### 2026-09-23T15:06:29Z — claude-code (agent)
+
+2026-09-23, user request: verify (linux) and verify-windows now run in parallel. A new `checksums` job (needs build) downloads the release-* artifacts, writes checksums.txt and uploads `release-dist` once; both verify jobs need [gate, checksums] and download that bundle; publish still needs both verifies. The releases-API stand-in stays inside the linux job and is no longer removed from dist because that job no longer uploads anything. Job graph checked with ruby YAML.

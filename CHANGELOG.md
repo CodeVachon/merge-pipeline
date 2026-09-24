@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Development now goes through pull requests; release notes are generated from PR titles
+  and labels (`.github/release.yml`).
+
 ## [0.2.0] - 2026-09-23
 
 ### Added
