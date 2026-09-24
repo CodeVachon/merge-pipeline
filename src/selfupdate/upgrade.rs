@@ -127,7 +127,12 @@ pub fn read_check_record(root: &Path) -> Option<CheckRecord> {
 
 /// Record a lookup attempt and, when it succeeded, the version it found. Best effort.
 pub fn record_check(root: &Path, latest: Option<&str>) {
-    let now = now_millis();
+    record_check_at(root, latest, now_millis());
+}
+
+/// [`record_check`] with an explicit timestamp (milliseconds since the epoch), for callers
+/// that carry their own clock.
+pub fn record_check_at(root: &Path, latest: Option<&str>, now: u64) {
     let mut record = read_check_record(root).unwrap_or_default();
     record.last_attempt_at = now;
     if let Some(latest) = latest {

@@ -15,8 +15,8 @@
 
 pub mod download;
 pub mod layout;
-pub mod nudge;
 pub mod releases;
+pub mod update_prompt;
 pub mod upgrade;
 pub mod versions;
 

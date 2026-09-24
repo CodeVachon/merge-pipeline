@@ -275,9 +275,27 @@ version directory. `upgrade` and `use` only move the `current` link, so the very
 to install a managed copy instead. Your workflow files are never touched by any of these,
 including `uninstall`.
 
-At the end of an interactive run on a terminal, once a day, a dimmed line mentions a newer
-release if one is known. Set `MERGE_PIPELINE_NO_UPDATE_CHECK=1` to turn that off; it is also
-off when `CI` is set.
+### The daily update offer
+
+At most once a day, an interactive run starts by checking whether a newer release exists and,
+if so, asks:
+
+```
+? merge-pipeline v0.3.0 is available (you have v0.2.0). Update now? (Y/n)
+```
+
+- **Yes** (the default, and what `--yes` answers): the release is downloaded, verified and
+  installed exactly as `merge-pipeline upgrade` would, `current` is repointed, and the run you
+  started continues on the new version with the same arguments. Nothing to retype.
+- **No**: `skipping; run merge-pipeline upgrade any time`, and the run continues on this
+  version. You will not be asked again until tomorrow.
+
+Any attempt counts towards the day, including a declined offer or a lookup that could not reach
+GitHub (those are silent; the lookup gives up after 1.5 seconds). The offer is only made where it
+can act: a managed installation, on a terminal (or with `--yes`). A binary built from source, a
+piped run, or any subcommand is never interrupted by it.
+
+Turn it off with `MERGE_PIPELINE_NO_UPDATE_CHECK=1`. It is also off when `CI` is set.
 
 Shell completion:
 
