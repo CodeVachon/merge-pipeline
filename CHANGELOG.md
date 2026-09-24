@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-24
+
 ### Added
 
 - Once a day, an interactive run starts by asking whether to install a newer release if one
@@ -19,6 +21,8 @@ All notable changes to this project are documented here. The format follows
   first when it is not on disk.
 - `merge-pipeline versions remove <version>...` and `merge-pipeline versions prune [--keep N]`
   delete old versions; the active version and the one running are never removed.
+- A full documentation site at <https://codevachon.github.io/merge-pipeline/>, covering
+  everything above plus the MCP tool reference, built with mdBook from `docs/`.
 
 ### Changed
 
@@ -101,6 +105,7 @@ See [MIGRATING.md](MIGRATING.md) for the upgrade path.
 
 - `bootstrap.sh`, the `data/` directory, and all Node/Bun tooling.
 
-[Unreleased]: https://github.com/CodeVachon/merge-pipeline/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/CodeVachon/merge-pipeline/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/CodeVachon/merge-pipeline/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/CodeVachon/merge-pipeline/releases/tag/v0.2.0
 [0.1.0]: https://github.com/CodeVachon/merge-pipeline/releases/tag/v0.1.0
