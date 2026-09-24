@@ -60,12 +60,32 @@ fn run_env(layout: &Layout, args: &[&str], env: &[(&str, &str)]) -> (i32, String
     for (k, v) in env {
         command.env(k, v);
     }
-    let output = command.output().expect("binary runs");
+    let output = output_retrying(&mut command).expect("binary runs");
     (
         output.status.code().unwrap_or(-1),
         String::from_utf8_lossy(&output.stdout).into_owned(),
         String::from_utf8_lossy(&output.stderr).into_owned(),
     )
+}
+
+/// Run a command, retrying on `ETXTBSY` ("Text file busy", raw os error 26).
+///
+/// `layout`'s exe is a fresh `fs::copy` of the running test binary. On Linux, `execve` can very
+/// briefly still see such a file as open for writing even after the copy's own file handle has
+/// closed — a known kernel/VFS race, sharper under CI's containerised filesystems, that has
+/// nothing to do with test correctness. Retrying a few times with a short sleep is the standard
+/// mitigation; any other error, or running out of attempts, propagates immediately.
+fn output_retrying(command: &mut Command) -> std::io::Result<std::process::Output> {
+    const ETXTBSY: i32 = 26;
+    for attempt in 0..20 {
+        match command.output() {
+            Err(error) if error.raw_os_error() == Some(ETXTBSY) && attempt < 19 => {
+                thread::sleep(Duration::from_millis(25));
+            }
+            result => return result,
+        }
+    }
+    unreachable!("loop always returns before exhausting its range")
 }
 
 fn current_of(root: &Path) -> String {
