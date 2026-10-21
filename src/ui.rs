@@ -268,6 +268,14 @@ impl StdoutRenderer {
                 rewritten.join(", "),
                 if *committed { " (committed)" } else { "" }
             )),
+            Event::ConflictCommandRan {
+                command, committed, ..
+            } => Some(format!(
+                "{} {}{}\n",
+                self.palette.cyan("Ran conflict command"),
+                command,
+                if *committed { " (committed)" } else { "" }
+            )),
             _ => None,
         }
     }

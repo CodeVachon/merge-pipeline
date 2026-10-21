@@ -14,6 +14,9 @@ into the second, the second into the third, and so on.
 | `description` | no | Free text |
 | `order` | no | Lower numbers are listed first. Workflows without an order come after every ordered one, by file name |
 | `disabled` | no | `true` loads the file but never offers it |
+| `conflictCommand` | no | Shell command offered when a merge stops on conflicts; see [Usage](usage.md#conflict-command) |
+| `conflictNoVerify` | no | Default `true`: commit the finished merge with `--no-verify` |
+| `conflictFiles` | no | Regexes against conflicted paths; the command is offered only when one matches |
 | `$schema` | no | Points editors at the [published schema](https://raw.githubusercontent.com/CodeVachon/merge-pipeline/main/schema/config.json) so they can validate the file as you type |
 
 ## How a pattern becomes a branch

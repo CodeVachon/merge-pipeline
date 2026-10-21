@@ -24,6 +24,9 @@ const KNOWN_KEYS: &[&str] = &[
     "description",
     "order",
     "pipeline",
+    "conflictCommand",
+    "conflictNoVerify",
+    "conflictFiles",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]

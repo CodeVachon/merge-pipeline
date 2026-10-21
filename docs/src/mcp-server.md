@@ -166,5 +166,5 @@ did not run.
 
 For `run_workflow`'s `answers`: `step:<source>>><target>` (confirm a merge), `push:<branch>`,
 `branch:<pattern>` (same as `selections`), `conflict:auto_resolve`,
-`conflict:version:<lower>|<higher>`. (`sync:delete:<branch>` exists on the CLI side only — MCP
+`conflict:version:<lower>|<higher>`, `conflict:tool`. (`sync:delete:<branch>` exists on the CLI side only — MCP
 callers use the `sync` argument instead.)

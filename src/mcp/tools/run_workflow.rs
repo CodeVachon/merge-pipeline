@@ -133,6 +133,14 @@ pub fn event_json(event: &Event) -> Value {
             "type": "conflicts_resolved", "step": step_json(step),
             "rewritten": rewritten, "committed": committed
         }),
+        Event::ConflictCommandRan {
+            step,
+            command,
+            committed,
+        } => json!({
+            "type": "conflict_command_ran", "step": step_json(step),
+            "command": command, "committed": committed
+        }),
         Event::Pushed { branch } => json!({ "type": "pushed", "branch": branch }),
         Event::PushSkipped { branch, reason } => json!({
             "type": "push_skipped", "branch": branch,

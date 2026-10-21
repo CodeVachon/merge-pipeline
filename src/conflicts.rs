@@ -13,6 +13,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::config::ConflictCommand;
 use crate::git::{Git, GitError};
 use crate::prompt::{Choice, PromptError, Prompter, Question};
 use crate::text::plural;
@@ -34,6 +35,9 @@ static VERSION_CONFLICT: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Prompt key asking whether to attempt auto-resolution at all.
 pub const AUTO_RESOLVE_KEY: &str = "conflict:auto_resolve";
+
+/// Prompt key asking whether to run the workflow's configured conflict command.
+pub const CONFLICT_COMMAND_KEY: &str = "conflict:tool";
 
 /// Prompt key for choosing between two versions (lower first, then higher).
 pub fn version_question_key(a: &str, b: &str) -> String {
@@ -69,6 +73,8 @@ struct Candidate {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConflictError {
+    #[error("conflict command `{command}` {reason}")]
+    CommandFailed { command: String, reason: String },
     #[error("could not read or write {}: {reason}", path.display())]
     Io { path: PathBuf, reason: String },
     #[error(transparent)]
@@ -374,6 +380,111 @@ pub fn try_resolve_package_json_versions(
         attempted: true,
         remaining,
         rewritten,
+        committed,
+    })
+}
+
+/// What running the conflict command achieved.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CommandOutcome {
+    /// False when the user declined; `remaining` is then the input.
+    pub ran: bool,
+    /// Conflicted paths still unresolved afterwards.
+    pub remaining: Vec<String>,
+    /// Whether the merge commit was created.
+    pub committed: bool,
+}
+
+/// Run `command` through the platform shell in `cwd`, output going straight to the terminal.
+fn run_shell(command: &str, cwd: &Path) -> Result<(), ConflictError> {
+    let mut shell = if cfg!(windows) {
+        let mut shell = std::process::Command::new("cmd");
+        shell.args(["/C", command]);
+        shell
+    } else {
+        let mut shell = std::process::Command::new("sh");
+        shell.args(["-c", command]);
+        shell
+    };
+    let status = shell
+        .current_dir(cwd)
+        .status()
+        .map_err(|error| ConflictError::CommandFailed {
+            command: command.to_string(),
+            reason: format!("could not be started: {error}"),
+        })?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(ConflictError::CommandFailed {
+            command: command.to_string(),
+            reason: format!("failed with {status}"),
+        })
+    }
+}
+
+/// Offer to run the workflow's `conflictCommand` for a merge that stopped on `conflicted_paths`.
+///
+/// Asks `prompter` (`conflict:tool`). On yes, runs the command in `cwd`, stages every conflicted
+/// path that no longer has conflict markers (or no longer exists), and commits with
+/// `--no-edit` (plus `--no-verify` unless the workflow turned it off) when git reports no
+/// remaining conflicts.
+pub fn try_run_conflict_command(
+    cwd: &Path,
+    tool: &ConflictCommand,
+    conflicted_paths: &[String],
+    git: &mut Git,
+    prompter: &mut dyn Prompter,
+) -> Result<CommandOutcome, ConflictError> {
+    let command = tool.command.as_str();
+    if conflicted_paths.is_empty() {
+        return Ok(CommandOutcome::default());
+    }
+
+    let run = prompter.confirm(
+        &Question::new(
+            CONFLICT_COMMAND_KEY,
+            format!(
+                "Run `{command}` to resolve {} conflicted {}?",
+                conflicted_paths.len(),
+                plural("file", conflicted_paths.len())
+            ),
+        ),
+        true,
+    )?;
+    if !run {
+        return Ok(CommandOutcome {
+            remaining: conflicted_paths.to_vec(),
+            ..Default::default()
+        });
+    }
+
+    run_shell(command, cwd)?;
+
+    for path in conflicted_paths {
+        let still_conflicted = match fs::read(cwd.join(path)) {
+            Ok(bytes) => has_conflict_markers(&String::from_utf8_lossy(&bytes)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => return Err(io_error(&cwd.join(path), error)),
+        };
+        if !still_conflicted {
+            git.call(&["add", "-A", "--", path.as_str()])?;
+        }
+    }
+
+    let remaining = git.conflicted_paths()?;
+    let committed = remaining.is_empty();
+    if committed {
+        if tool.no_verify {
+            git.call(&["commit", "--no-edit", "--no-verify"])?;
+        } else {
+            git.call(&["commit", "--no-edit"])?;
+        }
+    }
+
+    Ok(CommandOutcome {
+        ran: true,
+        remaining,
         committed,
     })
 }
