@@ -51,6 +51,26 @@ monorepo with twenty `package.json` files asks once), the higher version is offe
 the default, the files are rewritten, staged, and the merge is committed with `--no-verify`.
 Anything else conflicting is left for you.
 
+## Conflict command
+
+A workflow can name a command that knows how to fix its conflicts, typically a code generator
+for generated files:
+
+```json
+{
+  "name": "Patch Release to Staging Pipeline",
+  "pipeline": ["^Patch-*", "^staging-patch$"],
+  "conflictCommand": "pnpm run codegen"
+}
+```
+
+When a merge stops on conflicts that remain after the `package.json` resolution above,
+merge-pipeline asks whether to run the command (`--yes` answers yes). It runs through the shell
+in the repository root. Afterwards every conflicted file with no conflict markers left is staged;
+if git then reports no conflicts, the merge is committed with `--no-verify` and the run carries
+on to the push. If conflicts remain, or the command exits non-zero, the run stops with the merge
+left in progress. Answering no stops the run the same way.
+
 ## Before a run starts: branch sync
 
 Every action, `test` included, first syncs local branches with origin — a stale local branch no

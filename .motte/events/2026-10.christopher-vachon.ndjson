@@ -1,0 +1,4 @@
+{"at":"2026-10-21T15:35:23Z","id":59,"by":"Christopher Vachon","as":"user","type":"created","title":"Optional conflict command: offer to run a configured tool when a merge conflicts","state":"Todo"}
+{"at":"2026-10-21T15:35:25Z","id":59,"by":"Christopher Vachon","as":"user","type":"state","from":"Todo","to":"In Progress"}
+{"at":"2026-10-21T15:35:25Z","id":59,"by":"Christopher Vachon","as":"user","type":"assigned","from":null,"to":"Christopher Vachon"}
+{"at":"2026-10-21T15:37:52Z","id":59,"by":"Christopher Vachon","as":"user","type":"state","from":"In Progress","to":"Done"}

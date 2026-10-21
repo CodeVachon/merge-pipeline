@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A workflow file can set `conflictCommand`, a shell command (for example a code generator) that
+  merge-pipeline offers to run when a merge stops on conflicts. If it clears every conflict the
+  merge is committed with `--no-verify` and the run continues; otherwise the run stops with the
+  merge in progress, as before.
+
 ## [0.3.0] - 2026-09-24
 
 ### Added

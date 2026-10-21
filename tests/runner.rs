@@ -19,6 +19,7 @@ fn workflow(patterns: &[&str]) -> WorkflowConfig {
         description: String::new(),
         order: None,
         pipeline: patterns.iter().map(|p| p.to_string()).collect(),
+        conflict_command: None,
         source: PathBuf::from("test.json"),
     }
 }
@@ -335,6 +336,137 @@ fn unresolvable_conflict_is_a_merge_error_listing_files_and_leaves_the_merge_in_
         step: step("Patch-v0.1.1", "staging-patch"),
         paths: vec!["README.md".into()]
     }));
+}
+
+fn conflicting_generated_file(fixture: &Fixture) {
+    fixture.commit_on("Patch-v0.1.1", "generated.txt", "patch side\n", "patch");
+    fixture.commit_on(
+        "staging-patch",
+        "generated.txt",
+        "staging side\n",
+        "staging",
+    );
+    fixture.raw(&fixture.work, &["push", "origin", "staging-patch"]);
+}
+
+fn with_command(command: &str) -> WorkflowConfig {
+    WorkflowConfig {
+        conflict_command: Some(command.into()),
+        ..workflow(&["^Patch-v0.1.1$", "^staging-patch$"])
+    }
+}
+
+#[test]
+fn conflict_command_regenerates_the_files_then_commits_and_pushes() {
+    let fixture = Fixture::new();
+    conflicting_generated_file(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = RecordingPrompter::new(yes_to_everything().answer("conflict:tool", true));
+    let mut sink = CollectingSink::default();
+
+    let report = run_workflow(
+        &settings(&fixture, Action::Run, true),
+        &with_command("printf 'regenerated\\n' > generated.txt"),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap();
+
+    assert!(report.steps[0].merged);
+    assert!(report.steps[0].pushed);
+    assert_eq!(fixture.read("generated.txt"), "regenerated\n");
+    assert!(git.conflicted_paths().unwrap().is_empty());
+    assert_eq!(
+        fixture.origin_head("staging-patch"),
+        fixture.local_head("staging-patch")
+    );
+    assert!(prompter.keys().contains(&"conflict:tool"));
+    assert!(sink.0.iter().any(|e| matches!(
+        e,
+        Event::ConflictCommandRan { committed: true, command, .. } if command.starts_with("printf")
+    )));
+}
+
+#[test]
+fn declining_the_conflict_command_leaves_the_merge_in_progress() {
+    let fixture = Fixture::new();
+    conflicting_generated_file(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = yes_to_everything().answer("conflict:tool", false);
+    let mut sink = CollectingSink::default();
+
+    let error = run_workflow(
+        &settings(&fixture, Action::Run, true),
+        &with_command("printf 'regenerated\\n' > generated.txt"),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap_err();
+
+    assert!(matches!(error, RunError::Merge(merge) if merge.files == vec!["generated.txt"]));
+    assert_eq!(git.conflicted_paths().unwrap(), vec!["generated.txt"]);
+    assert!(
+        !sink
+            .0
+            .iter()
+            .any(|e| matches!(e, Event::ConflictCommandRan { .. }))
+    );
+}
+
+#[test]
+fn conflict_command_that_leaves_conflicts_is_a_merge_error() {
+    let fixture = Fixture::new();
+    conflicting_generated_file(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = yes_to_everything().answer("conflict:tool", true);
+    let mut sink = CollectingSink::default();
+
+    let error = run_workflow(
+        &settings(&fixture, Action::Run, true),
+        &with_command("true"),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap_err();
+
+    assert!(matches!(error, RunError::Merge(merge) if merge.files == vec!["generated.txt"]));
+    assert_eq!(git.conflicted_paths().unwrap(), vec!["generated.txt"]);
+    assert!(sink.0.iter().any(|e| matches!(
+        e,
+        Event::ConflictCommandRan {
+            committed: false,
+            ..
+        }
+    )));
+}
+
+#[test]
+fn failing_conflict_command_stops_the_run_with_the_merge_in_progress() {
+    let fixture = Fixture::new();
+    conflicting_generated_file(&fixture);
+
+    let mut git = fixture.git();
+    let mut prompter = yes_to_everything().answer("conflict:tool", true);
+    let mut sink = CollectingSink::default();
+
+    let error = run_workflow(
+        &settings(&fixture, Action::Run, true),
+        &with_command("exit 3"),
+        &mut git,
+        &mut prompter,
+        &mut sink,
+    )
+    .unwrap_err();
+
+    assert!(matches!(error, RunError::Conflict(_)));
+    assert!(error.to_string().contains("exit 3"));
+    assert_eq!(git.conflicted_paths().unwrap(), vec!["generated.txt"]);
 }
 
 /// Choice values offered by a recorded select prompt.

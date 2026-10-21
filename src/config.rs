@@ -24,6 +24,8 @@ pub struct WorkflowConfig {
     pub order: Option<f64>,
     /// Regex patterns, in merge order. Each maps to one branch; consecutive pairs become steps.
     pub pipeline: Vec<String>,
+    /// Shell command offered when a merge stops on conflicts (e.g. a code generator).
+    pub conflict_command: Option<String>,
     /// Where it was read from.
     pub source: PathBuf,
 }
@@ -45,6 +47,8 @@ struct RawWorkflow {
     order: Option<f64>,
     #[serde(default)]
     pipeline: Vec<String>,
+    #[serde(default, rename = "conflictCommand")]
+    conflict_command: Option<String>,
 }
 
 /// A file that could not become a workflow. Collected, not fatal.
@@ -196,6 +200,10 @@ fn parse_workflow(path: &Path) -> Result<WorkflowConfig, LoadError> {
         description: raw.description,
         order: raw.order.filter(|order| order.is_finite()),
         pipeline: raw.pipeline,
+        conflict_command: raw
+            .conflict_command
+            .map(|command| command.trim().to_string())
+            .filter(|command| !command.is_empty()),
         source: path.to_path_buf(),
     })
 }

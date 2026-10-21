@@ -8,7 +8,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::config::WorkflowConfig;
-use crate::conflicts::{ConflictError, try_resolve_package_json_versions};
+use crate::conflicts::{
+    ConflictError, try_resolve_package_json_versions, try_run_conflict_command,
+};
 use crate::git::{Git, GitError};
 use crate::pipeline::{PipelineError, Step, make_steps, map_pipeline};
 use crate::prompt::{PromptError, Prompter, Question};
@@ -118,6 +120,12 @@ pub enum Event {
     ConflictsResolved {
         step: Step,
         rewritten: Vec<String>,
+        committed: bool,
+    },
+    /// The workflow's `conflictCommand` ran.
+    ConflictCommandRan {
+        step: Step,
+        command: String,
         committed: bool,
     },
     Pushed {
@@ -322,6 +330,7 @@ fn update_branch(git: &mut Git, branch: &str, sink: &mut dyn EventSink) -> Resul
 
 fn merge_step(
     settings: &Settings,
+    conflict_command: Option<&str>,
     step: &Step,
     git: &mut Git,
     prompter: &mut dyn Prompter,
@@ -355,7 +364,23 @@ fn merge_step(
         return Ok(outcome.rewritten);
     }
 
-    let files = outcome.remaining;
+    let mut files = outcome.remaining;
+    if let Some(command) = conflict_command {
+        let ran = try_run_conflict_command(&settings.cwd, command, &files, git, prompter)?;
+        if ran.ran {
+            sink.event(&Event::ConflictCommandRan {
+                step: step.clone(),
+                command: command.to_string(),
+                committed: ran.committed,
+            });
+            if ran.remaining.is_empty() {
+                sink.event(&Event::Merged { step: step.clone() });
+                return Ok(outcome.rewritten);
+            }
+            files = ran.remaining;
+        }
+    }
+
     Err(MergeError {
         step: step.clone(),
         cause: if files.is_empty() {
@@ -396,8 +421,8 @@ fn should_push(
 
 fn run_step(
     settings: &Settings,
-    index: usize,
-    total: usize,
+    conflict_command: Option<&str>,
+    (index, total): (usize, usize),
     step: &Step,
     git: &mut Git,
     prompter: &mut dyn Prompter,
@@ -411,7 +436,7 @@ fn run_step(
     confirm_step(step, prompter)?;
     update_branch(git, &step.source, sink)?;
     let target_has_upstream = update_branch(git, &step.target, sink)?;
-    let conflicts_resolved = merge_step(settings, step, git, prompter, sink)?;
+    let conflicts_resolved = merge_step(settings, conflict_command, step, git, prompter, sink)?;
 
     let pushed = match should_push(settings, &step.target, target_has_upstream, prompter)? {
         Ok(()) => {
@@ -471,7 +496,15 @@ pub fn run_workflow(
 
     let total = steps.len();
     for (index, step) in steps.iter().enumerate() {
-        let outcome = run_step(&settings, index, total, step, git, prompter, sink)?;
+        let outcome = run_step(
+            &settings,
+            workflow.conflict_command.as_deref(),
+            (index, total),
+            step,
+            git,
+            prompter,
+            sink,
+        )?;
         report.steps.push(outcome);
     }
 

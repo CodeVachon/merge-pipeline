@@ -62,6 +62,7 @@ into the second, the second into the third, and so on.
 | `description` | no       | Free text                                                                                                |
 | `order`       | no       | Lower numbers are listed first. Workflows without an order come after every ordered one, by file name    |
 | `disabled`    | no       | `true` loads the file but never offers it                                                                |
+| `conflictCommand` | no   | Shell command offered when a merge stops on conflicts (see [Conflict command](#conflict-command))        |
 
 How a pattern becomes a branch: every local branch that matches is a candidate, minus branches
 already chosen earlier in the same pipeline. One candidate is used as is. Several candidates
@@ -187,6 +188,26 @@ monorepo with twenty `package.json` files asks once), the higher version is offe
 the default, the files are rewritten, staged, and the merge is committed with `--no-verify`.
 Anything else conflicting is left for you.
 
+## Conflict command
+
+A workflow can name a command that knows how to fix its conflicts, typically a code generator
+for generated files:
+
+```json
+{
+  "name": "Patch Release to Staging Pipeline",
+  "pipeline": ["^Patch-*", "^staging-patch$"],
+  "conflictCommand": "pnpm run codegen"
+}
+```
+
+When a merge stops on conflicts that remain after the `package.json` resolution above,
+merge-pipeline asks whether to run the command (`--yes` answers yes). It runs through the shell
+in the repository root. Afterwards every conflicted file with no conflict markers left is staged;
+if git then reports no conflicts, the merge is committed with `--no-verify` and the run carries
+on to the push. If conflicts remain, or the command exits non-zero, the run stops with the merge
+left in progress. Answering no stops the run the same way.
+
 ## Agents: MCP server
 
 `merge-pipeline mcp` speaks the Model Context Protocol over stdio (JSON-RPC 2.0, one message per
@@ -241,7 +262,7 @@ the repository is left clean; pass `false` to leave the merge in progress for a 
 
 Question keys, for `answers`: `step:<source>>><target>` (confirm a merge), `push:<branch>`,
 `branch:<pattern>` (same as `selections`), `conflict:auto_resolve`,
-`conflict:version:<lower>|<higher>`, and `sync:delete:<branch>` (CLI only; MCP uses `sync`).
+`conflict:version:<lower>|<higher>`, `conflict:tool`, and `sync:delete:<branch>` (CLI only; MCP uses `sync`).
 
 ## Keeping it up to date
 

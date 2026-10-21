@@ -41,6 +41,12 @@
         "type": "string"
       },
       "minItems": 2
+    },
+    "conflictCommand": {
+      "title": "Conflict command",
+      "description": "Shell command offered when a merge stops on conflicts (for example a code generator that rebuilds generated files). If it leaves no conflicts, the merge is committed with --no-verify and the run continues.",
+      "type": "string",
+      "minLength": 1
     }
   },
   "required": ["name", "pipeline"],
