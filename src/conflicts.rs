@@ -13,6 +13,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::config::ConflictCommand;
 use crate::git::{Git, GitError};
 use crate::prompt::{Choice, PromptError, Prompter, Question};
 use crate::text::plural;
@@ -426,14 +427,16 @@ fn run_shell(command: &str, cwd: &Path) -> Result<(), ConflictError> {
 ///
 /// Asks `prompter` (`conflict:tool`). On yes, runs the command in `cwd`, stages every conflicted
 /// path that no longer has conflict markers (or no longer exists), and commits with
-/// `--no-edit --no-verify` when git reports no remaining conflicts.
+/// `--no-edit` (plus `--no-verify` unless the workflow turned it off) when git reports no
+/// remaining conflicts.
 pub fn try_run_conflict_command(
     cwd: &Path,
-    command: &str,
+    tool: &ConflictCommand,
     conflicted_paths: &[String],
     git: &mut Git,
     prompter: &mut dyn Prompter,
 ) -> Result<CommandOutcome, ConflictError> {
+    let command = tool.command.as_str();
     if conflicted_paths.is_empty() {
         return Ok(CommandOutcome::default());
     }
@@ -472,7 +475,11 @@ pub fn try_run_conflict_command(
     let remaining = git.conflicted_paths()?;
     let committed = remaining.is_empty();
     if committed {
-        git.call(&["commit", "--no-edit", "--no-verify"])?;
+        if tool.no_verify {
+            git.call(&["commit", "--no-edit", "--no-verify"])?;
+        } else {
+            git.call(&["commit", "--no-edit"])?;
+        }
     }
 
     Ok(CommandOutcome {

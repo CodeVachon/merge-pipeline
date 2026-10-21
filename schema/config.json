@@ -47,6 +47,18 @@
       "description": "Shell command offered when a merge stops on conflicts (for example a code generator that rebuilds generated files). If it leaves no conflicts, the merge is committed with --no-verify and the run continues.",
       "type": "string",
       "minLength": 1
+    },
+    "conflictNoVerify": {
+      "title": "Commit the conflict-command merge with --no-verify",
+      "description": "Only used with conflictCommand. When true (the default) the merge commit skips git hooks.",
+      "type": "boolean",
+      "default": true
+    },
+    "conflictFiles": {
+      "title": "Paths the conflict command applies to",
+      "description": "Only used with conflictCommand. Regular expressions searched against conflicted file paths; the command is offered only when at least one conflicted path matches. Omit to offer it for any conflict.",
+      "type": "array",
+      "items": { "type": "string" }
     }
   },
   "required": ["name", "pipeline"],

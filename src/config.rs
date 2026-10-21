@@ -24,10 +24,35 @@ pub struct WorkflowConfig {
     pub order: Option<f64>,
     /// Regex patterns, in merge order. Each maps to one branch; consecutive pairs become steps.
     pub pipeline: Vec<String>,
-    /// Shell command offered when a merge stops on conflicts (e.g. a code generator).
-    pub conflict_command: Option<String>,
+    /// Tool offered when a merge stops on conflicts (e.g. a code generator).
+    pub conflict_command: Option<ConflictCommand>,
     /// Where it was read from.
     pub source: PathBuf,
+}
+
+/// A shell command offered when a merge stops on conflicts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConflictCommand {
+    pub command: String,
+    /// Commit the merge with `--no-verify` once the command has cleared every conflict.
+    pub no_verify: bool,
+    /// Regular expressions searched against conflicted paths. Empty means any conflict qualifies;
+    /// otherwise the command is only offered when at least one conflicted path matches.
+    pub files: Vec<String>,
+}
+
+impl ConflictCommand {
+    /// Whether the command should be offered for `conflicted` paths. Patterns are validated when
+    /// the workflow loads, so an invalid one simply never matches here.
+    pub fn applies_to(&self, conflicted: &[String]) -> bool {
+        if self.files.is_empty() {
+            return true;
+        }
+        self.files
+            .iter()
+            .filter_map(|pattern| regex::Regex::new(pattern).ok())
+            .any(|pattern| conflicted.iter().any(|path| pattern.is_match(path)))
+    }
 }
 
 impl WorkflowConfig {
@@ -49,6 +74,14 @@ struct RawWorkflow {
     pipeline: Vec<String>,
     #[serde(default, rename = "conflictCommand")]
     conflict_command: Option<String>,
+    #[serde(default = "default_true", rename = "conflictNoVerify")]
+    conflict_no_verify: bool,
+    #[serde(default, rename = "conflictFiles")]
+    conflict_files: Vec<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// A file that could not become a workflow. Collected, not fatal.
@@ -194,6 +227,17 @@ fn parse_workflow(path: &Path) -> Result<WorkflowConfig, LoadError> {
         });
     }
 
+    for (index, pattern) in raw.conflict_files.iter().enumerate() {
+        if let Err(error) = regex::Regex::new(pattern) {
+            return Err(LoadError {
+                path: path.to_path_buf(),
+                reason: format!(
+                    "conflictFiles[{index}] \"{pattern}\" is not a valid regular expression: {error}"
+                ),
+            });
+        }
+    }
+
     Ok(WorkflowConfig {
         disabled: raw.disabled,
         name: raw.name.unwrap_or_else(|| "not named".to_string()),
@@ -203,7 +247,12 @@ fn parse_workflow(path: &Path) -> Result<WorkflowConfig, LoadError> {
         conflict_command: raw
             .conflict_command
             .map(|command| command.trim().to_string())
-            .filter(|command| !command.is_empty()),
+            .filter(|command| !command.is_empty())
+            .map(|command| ConflictCommand {
+                command,
+                no_verify: raw.conflict_no_verify,
+                files: raw.conflict_files,
+            }),
         source: path.to_path_buf(),
     })
 }
@@ -291,6 +340,44 @@ mod tests {
                 "Unordered First",
                 "Unordered Last"
             ]
+        );
+    }
+
+    #[test]
+    fn conflict_command_options_parse_with_defaults_and_validate_patterns() {
+        let temp = tempfile::tempdir().unwrap();
+        write(
+            temp.path(),
+            "a.json",
+            r#"{"name":"A","pipeline":["a","b"],"conflictCommand":" resolve-merge-conflicts -y "}"#,
+        );
+        write(
+            temp.path(),
+            "b.json",
+            r#"{"name":"B","pipeline":["a","b"],"conflictCommand":"x","conflictNoVerify":false,"conflictFiles":["^gen/"]}"#,
+        );
+        write(
+            temp.path(),
+            "c.json",
+            r#"{"name":"C","pipeline":["a","b"],"conflictCommand":"x","conflictFiles":["(open"]}"#,
+        );
+
+        let result = load_workflows(temp.path());
+        let a = result.find("A").unwrap().conflict_command.clone().unwrap();
+        assert_eq!(a.command, "resolve-merge-conflicts -y");
+        assert!(a.no_verify);
+        assert!(a.applies_to(&["anything".to_string()]));
+
+        let b = result.find("B").unwrap().conflict_command.clone().unwrap();
+        assert!(!b.no_verify);
+        assert!(b.applies_to(&["gen/schema.ts".to_string()]));
+        assert!(!b.applies_to(&["src/lib.rs".to_string()]));
+
+        assert_eq!(result.errors.len(), 1);
+        assert!(
+            result.errors[0]
+                .reason
+                .starts_with("conflictFiles[0] \"(open\"")
         );
     }
 

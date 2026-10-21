@@ -63,6 +63,8 @@ into the second, the second into the third, and so on.
 | `order`       | no       | Lower numbers are listed first. Workflows without an order come after every ordered one, by file name    |
 | `disabled`    | no       | `true` loads the file but never offers it                                                                |
 | `conflictCommand` | no   | Shell command offered when a merge stops on conflicts (see [Conflict command](#conflict-command))        |
+| `conflictNoVerify` | no  | Default `true`: commit the finished merge with `--no-verify`                                             |
+| `conflictFiles` | no     | Regexes against conflicted paths; the command is offered only when one matches                           |
 
 How a pattern becomes a branch: every local branch that matches is a candidate, minus branches
 already chosen earlier in the same pipeline. One candidate is used as is. Several candidates
@@ -197,9 +199,17 @@ for generated files:
 {
   "name": "Patch Release to Staging Pipeline",
   "pipeline": ["^Patch-*", "^staging-patch$"],
-  "conflictCommand": "pnpm run codegen"
+  "conflictCommand": "resolve-merge-conflicts -a claude -m sonnet",
+  "conflictNoVerify": true,
+  "conflictFiles": ["^generated/", "\\.lock$"]
 }
 ```
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `conflictCommand` | none | Shell command to offer |
+| `conflictNoVerify` | `true` | Commit the finished merge with `--no-verify`; `false` lets git hooks run |
+| `conflictFiles` | any conflict | Regular expressions searched (case-sensitively) against conflicted paths; the command is offered only when at least one conflicted path matches |
 
 When a merge stops on conflicts that remain after the `package.json` resolution above,
 merge-pipeline asks whether to run the command (`--yes` answers yes). It runs through the shell
@@ -207,6 +217,12 @@ in the repository root. Afterwards every conflicted file with no conflict marker
 if git then reports no conflicts, the merge is committed with `--no-verify` and the run carries
 on to the push. If conflicts remain, or the command exits non-zero, the run stops with the merge
 left in progress. Answering no stops the run the same way.
+
+The command can be interactive: it inherits the terminal. It suits
+[`resolve-merge-conflicts`](https://github.com/CodeVachon/resolve-merge-conflict), which resolves
+conflicts with an agent, stages what it really resolved, and never commits; merge-pipeline then
+commits and pushes. That tool exits 1 when files are still conflicted, which stops the run. Pass
+its own flags (`-y`, `-a`, `-m`, ...) in `conflictCommand`.
 
 ## Agents: MCP server
 

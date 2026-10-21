@@ -5,7 +5,7 @@ state: Done
 assignee: Christopher Vachon
 labels: [feature]
 created: 2026-10-21T15:35:23Z
-updated: 2026-10-21T15:37:52Z
+updated: 2026-10-21T15:43:45Z
 ---
 
 ## Description
@@ -21,3 +21,7 @@ Requested 2026-10-21. A workflow file may set `conflictCommand` (a shell command
 ### 2026-10-21T15:37:51Z — Christopher Vachon (user)
 
 Implemented as workflow field conflictCommand (string). Runs after the package.json resolver, only on conflicts it left behind. Decisions: prompt key conflict:tool (default yes, so --yes runs it); runs via sh -c / cmd /C in the repo root with inherited stdio; afterwards stages each previously-conflicted path with no markers (or deleted) via git add -A, commits --no-edit --no-verify only when git reports zero conflicts; a non-zero exit is ConflictError::CommandFailed and leaves the merge in progress. MCP callers answer conflict:tool via answers. Verified: fmt, clippy -D warnings, cargo test, mdbook build + check-links all green.
+
+### 2026-10-21T15:43:45Z — Christopher Vachon (user)
+
+Follow-up 2026-10-21: added conflictNoVerify (default true) and conflictFiles (regexes, offered when any conflicted path matches; validated at load). Intended use is resolve-merge-conflicts (stages itself, never commits, exits 1 when files remain conflicted -> stops the run, merge in progress), documented in usage.md/README.

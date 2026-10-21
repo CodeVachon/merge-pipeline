@@ -7,7 +7,7 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use crate::config::WorkflowConfig;
+use crate::config::{ConflictCommand, WorkflowConfig};
 use crate::conflicts::{
     ConflictError, try_resolve_package_json_versions, try_run_conflict_command,
 };
@@ -330,7 +330,7 @@ fn update_branch(git: &mut Git, branch: &str, sink: &mut dyn EventSink) -> Resul
 
 fn merge_step(
     settings: &Settings,
-    conflict_command: Option<&str>,
+    conflict_command: Option<&ConflictCommand>,
     step: &Step,
     git: &mut Git,
     prompter: &mut dyn Prompter,
@@ -365,12 +365,13 @@ fn merge_step(
     }
 
     let mut files = outcome.remaining;
-    if let Some(command) = conflict_command {
-        let ran = try_run_conflict_command(&settings.cwd, command, &files, git, prompter)?;
+    let tool = conflict_command.filter(|tool| tool.applies_to(&files));
+    if let Some(tool) = tool {
+        let ran = try_run_conflict_command(&settings.cwd, tool, &files, git, prompter)?;
         if ran.ran {
             sink.event(&Event::ConflictCommandRan {
                 step: step.clone(),
-                command: command.to_string(),
+                command: tool.command.clone(),
                 committed: ran.committed,
             });
             if ran.remaining.is_empty() {
@@ -421,7 +422,7 @@ fn should_push(
 
 fn run_step(
     settings: &Settings,
-    conflict_command: Option<&str>,
+    conflict_command: Option<&ConflictCommand>,
     (index, total): (usize, usize),
     step: &Step,
     git: &mut Git,
@@ -498,7 +499,7 @@ pub fn run_workflow(
     for (index, step) in steps.iter().enumerate() {
         let outcome = run_step(
             &settings,
-            workflow.conflict_command.as_deref(),
+            workflow.conflict_command.as_ref(),
             (index, total),
             step,
             git,
